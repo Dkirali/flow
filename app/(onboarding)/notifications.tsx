@@ -117,9 +117,9 @@ export default function OnboardingNotificationsScreen() {
               body: "Don't forget to log today's expenses!",
             },
             trigger: {
+              type: 'daily',
               hour: 21,
               minute: 0,
-              repeats: true,
             },
           })
           break
