@@ -1,21 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { MMKV } from 'react-native-mmkv'
-
-const storage = new MMKV()
-
-const mmkvStorage = {
-  getItem: (name: string) => {
-    const value = storage.getString(name)
-    return value ? JSON.parse(value) : null
-  },
-  setItem: (name: string, value: unknown) => {
-    storage.set(name, JSON.stringify(value))
-  },
-  removeItem: (name: string) => {
-    storage.delete(name)
-  },
-}
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 interface UserStore {
   name: string
@@ -34,7 +19,7 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: 'user-storage',
-      storage: createJSONStorage(() => mmkvStorage),
+      storage: createJSONStorage(() => AsyncStorage),
     }
   )
 )

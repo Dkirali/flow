@@ -3,14 +3,12 @@ import { db } from '@/db/client'
 import { transactions } from '@/db/schema'
 import { eq, and, between } from 'drizzle-orm'
 import * as Notifications from 'expo-notifications'
-import { MMKV } from 'react-native-mmkv'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Transaction, NewTransaction } from '@/types/transaction'
 import { getTodayString } from '@/utils/dateHelpers'
 import { calculateRemainingToday, getRemainingPercentage } from '@/utils/budgetCalculator'
 import { useBudgetStore } from './budgetStore'
 import { useSettingsStore } from './settingsStore'
-
-const storage = new MMKV()
 
 interface TransactionStore {
   transactions: Transaction[]
@@ -73,11 +71,11 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
           if (notifications.budgetAlert) {
             // Only fire once per day
             const lastFiredKey = 'budget_alert_last_fired'
-            const lastFired = storage.getString(lastFiredKey)
+            const lastFired = await AsyncStorage.getItem(lastFiredKey)
             const today = getTodayString()
 
             if (lastFired !== today) {
-              storage.set(lastFiredKey, today)
+              await AsyncStorage.setItem(lastFiredKey, today)
               await Notifications.scheduleNotificationAsync({
                 content: {
                   title: 'Budget Alert 🟡',

@@ -1,26 +1,11 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { MMKV } from 'react-native-mmkv'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { db } from '@/db/client'
 import { incomeSources, mandatoryExpenses } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { calculateDailyBudget } from '@/utils/budgetCalculator'
 import type { IncomeSource, NewIncomeSource, MandatoryExpense, NewMandatoryExpense } from '@/types/transaction'
-
-const storage = new MMKV()
-
-const mmkvStorage = {
-  getItem: (name: string) => {
-    const value = storage.getString(name)
-    return value ? JSON.parse(value) : null
-  },
-  setItem: (name: string, value: unknown) => {
-    storage.set(name, JSON.stringify(value))
-  },
-  removeItem: (name: string) => {
-    storage.delete(name)
-  },
-}
 
 interface BudgetStore {
   incomeSources: IncomeSource[]
@@ -158,8 +143,8 @@ export const useBudgetStore = create<BudgetStore>()(
     }),
     {
       name: 'budget-storage',
-      storage: createJSONStorage(() => mmkvStorage),
-      // Only persist the computed dailyBudget to MMKV
+      storage: createJSONStorage(() => AsyncStorage),
+      // Only persist the computed dailyBudget to AsyncStorage
       // Income sources and mandatory expenses are stored in SQLite only
       partialize: (state) => ({
         dailyBudget: state.dailyBudget,

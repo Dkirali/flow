@@ -1,22 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { MMKV } from 'react-native-mmkv'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getCurrencyByCode } from '@/constants/currencies'
-
-const storage = new MMKV()
-
-const mmkvStorage = {
-  getItem: (name: string) => {
-    const value = storage.getString(name)
-    return value ? JSON.parse(value) : null
-  },
-  setItem: (name: string, value: unknown) => {
-    storage.set(name, JSON.stringify(value))
-  },
-  removeItem: (name: string) => {
-    storage.delete(name)
-  },
-}
 
 interface NotificationSettings {
   dailyReminder: boolean
@@ -84,7 +69,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'settings-storage',
-      storage: createJSONStorage(() => mmkvStorage),
+      storage: createJSONStorage(() => AsyncStorage),
     }
   )
 )

@@ -1,68 +1,69 @@
+import React, { useEffect } from 'react'
 import { View } from 'react-native'
-import { Canvas, Path, Skia } from '@shopify/react-native-skia'
-import { useEffect } from 'react'
-import Animated, { useSharedValue, useAnimatedProps, withTiming, Easing } from 'react-native-reanimated'
+import Svg, { Circle } from 'react-native-svg'
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated'
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 
 interface ProgressRingProps {
-  percentage: number // 0-100
+  percentage: number
   size?: number
   strokeWidth?: number
   color?: string
 }
 
-export function ProgressRing({
+export default function ProgressRing({
   percentage,
   size = 120,
   strokeWidth = 12,
   color = '#00C9A7',
 }: ProgressRingProps) {
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
   const progress = useSharedValue(0)
 
   useEffect(() => {
-    progress.value = withTiming(percentage, {
+    progress.value = withTiming(percentage / 100, {
       duration: 600,
-      easing: Easing.out(Easing.cubic),
+      easing: Easing.out(Easing.ease),
     })
   }, [percentage])
 
-  const center = size / 2
-  const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
-
-  // Create SVG path for the ring
-  const path = Skia.Path.Make()
-  path.addCircle(center, center, radius)
-
-  const animatedProps = useAnimatedProps(() => {
-    const strokeDashoffset = circumference - (progress.value / 100) * circumference
-    return {
-      strokeDashoffset,
-    }
-  })
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: circumference * (1 - progress.value),
+  }))
 
   return (
     <View style={{ width: size, height: size }}>
-      <Canvas style={{ width: size, height: size }}>
-        {/* Background track */}
-        <Path
-          path={path}
+      <Svg width={size} height={size}>
+        {/* Track */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#2E2D45"
           strokeWidth={strokeWidth}
-          color="#2E2D45"
-          style="stroke"
-          strokeCap="round"
+          fill="none"
         />
         {/* Progress arc */}
-        <Path
-          path={path}
+        <AnimatedCircle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
           strokeWidth={strokeWidth}
-          color={color}
-          style="stroke"
-          strokeCap="round"
+          fill="none"
           strokeDasharray={circumference}
-          // @ts-ignore - animated props work with Skia
           animatedProps={animatedProps}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size/2} ${size/2})`}
         />
-      </Canvas>
+      </Svg>
     </View>
   )
 }
