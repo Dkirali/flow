@@ -1,14 +1,14 @@
 {
   "cli": {
     "version": ">= 7.0.0",
-    "requireCommit": true
+    "requireCommit": false
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "ios": { "simulator": true },
-      "env": { "APP_ENV": "development" }
+      "env": { "APP_ENV": "development", "NPM_CONFIG_LEGACY_PEER_DEPS": "true" }
     },
     "preview": {
       "distribution": "internal",
