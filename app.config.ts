@@ -43,11 +43,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
   ],
-  // extra: {
-  //   eas: {
-  //     projectId: 'PLACEHOLDER',
-  //   },
-  // },
+  extra: {
+    eas: {
+      projectId: '17e024f5-ec12-4087-991c-7ee34d991eae',
+    },
+  },
   experiments: {
     typedRoutes: true,
   },
