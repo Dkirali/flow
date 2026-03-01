@@ -1,15 +1,15 @@
+import '../global.css'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect, useState } from 'react'
 import { View, Text } from 'react-native'
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { runMigrations } from '@/db/client'
 import { useTransactionStore } from '@/stores/transactionStore'
 import { useBudgetStore } from '@/stores/budgetStore'
 import { processRecurringTransactions } from '@/utils/recurringEngine'
-import '../global.css'
 
 function RootLayoutNav() {
   const { fetchAll } = useTransactionStore()
@@ -71,7 +71,7 @@ function RootLayoutNav() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: '#0A0914' },
+        contentStyle: { backgroundColor: '#0F0E1A' },
       }}
     >
       <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
@@ -87,6 +87,7 @@ export default function RootLayout() {
     'Inter-Medium': Inter_500Medium,
     'Inter-SemiBold': Inter_600SemiBold,
     'Inter-Bold': Inter_700Bold,
+    'Inter-ExtraBold': Inter_800ExtraBold,
   })
 
   // 3. Hold splash screen until fonts are ready
@@ -99,13 +100,10 @@ export default function RootLayout() {
   }
 
   return (
-    // 4. SafeAreaProvider wrapping everything
     <SafeAreaProvider>
-      // 5. GestureHandlerRootView wrapping everything (required for gesture handler)
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <View style={{ flex: 1, backgroundColor: '#0A0914' }}>
+        <View style={{ flex: 1, backgroundColor: '#0F0E1A' }}>
           <RootLayoutNav />
-          // 6. StatusBar light mode
           <StatusBar style="light" />
         </View>
       </GestureHandlerRootView>

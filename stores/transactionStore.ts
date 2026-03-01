@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { generateId } from '@/utils/generateId'
 import { db } from '@/db/client'
 import { transactions } from '@/db/schema'
 import { eq, and, between } from 'drizzle-orm'
@@ -39,7 +40,7 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
   },
 
   addTransaction: async (newTransaction) => {
-    const id = crypto.randomUUID()
+    const id = generateId()
     const now = new Date().toISOString()
 
     const transactionToInsert = {

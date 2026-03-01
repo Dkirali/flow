@@ -1,3 +1,4 @@
+import { generateId } from '@/utils/generateId'
 import { db } from '@/db/client'
 import { transactions } from '@/db/schema'
 import { eq, and, like } from 'drizzle-orm'
@@ -52,7 +53,7 @@ export async function getTodayTransactions(): Promise<Transaction[]> {
  * Insert a new transaction
  */
 export async function insertTransaction(t: NewTransaction): Promise<void> {
-  const id = crypto.randomUUID()
+  const id = generateId()
   const now = new Date().toISOString()
   
   await db.insert(transactions).values({

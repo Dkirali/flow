@@ -1,4 +1,6 @@
 import { isToday, getDate } from 'date-fns'
+import { eq, and } from 'drizzle-orm'
+import { generateId } from '@/utils/generateId'
 import { db } from '@/db/client'
 import { incomeSources, mandatoryExpenses, transactions } from '@/db/schema'
 import type { IncomeSource, MandatoryExpense } from '@/types/transaction'
@@ -46,22 +48,32 @@ export async function processRecurringTransactions() {
   }
 }
 
-async function checkTodayTransactionExists(sourceId: string, type: 'income' | 'expense'): Promise<boolean> {
-  const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
-  
+async function checkTodayTransactionExists(
+  sourceId: string,
+  type: 'income' | 'expense'
+): Promise<boolean> {
+  const today = new Date()
+    .toISOString()
+    .split('T')[0]
+
   try {
-    const todaysTransactions = await db
+    const result = await db
       .select()
       .from(transactions)
-      .where({ date: today, type })
-    
-    // Check if any transaction today matches this source (by checking the note or amount pattern)
-    return todaysTransactions.some((t: any) => {
-      // Simple check: if it's a recurring transaction created today
-      return t.isRecurring && t.createdAt.startsWith(today)
-    })
+      .where(
+        and(
+          eq(transactions.date, today),
+          eq(transactions.type, type),
+          eq(transactions.isRecurring, true)
+        )
+      )
+
+    return result.length > 0
   } catch (error) {
-    console.error('[RecurringEngine] Error checking today transactions:', error)
+    console.error(
+      '[RecurringEngine] Error checking today transactions:',
+      error
+    )
     return false
   }
 }
@@ -72,7 +84,7 @@ async function createTransactionFromSource(source: IncomeSource) {
   const time = now.toTimeString().slice(0, 5) // HH:MM
   
   const transaction = {
-    id: crypto.randomUUID(),
+    id: generateId(),
     amount: source.amount,
     type: 'income' as const,
     category: source.category,
@@ -97,7 +109,7 @@ async function createTransactionFromExpense(expense: MandatoryExpense) {
   const time = now.toTimeString().slice(0, 5) // HH:MM
   
   const transaction = {
-    id: crypto.randomUUID(),
+    id: generateId(),
     amount: expense.amount,
     type: 'expense' as const,
     category: expense.category,

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { generateId } from '@/utils/generateId'
 import { db } from '@/db/client'
 import { incomeSources, mandatoryExpenses } from '@/db/schema'
 import { eq } from 'drizzle-orm'
@@ -61,7 +62,7 @@ export const useBudgetStore = create<BudgetStore>()(
       },
 
       addIncomeSource: async (newSource) => {
-        const id = crypto.randomUUID()
+        const id = generateId()
         const now = new Date().toISOString()
         
         const sourceToInsert = {
@@ -102,7 +103,7 @@ export const useBudgetStore = create<BudgetStore>()(
       },
 
       addMandatoryExpense: async (newExpense) => {
-        const id = crypto.randomUUID()
+        const id = generateId()
         const now = new Date().toISOString()
         
         const expenseToInsert = {

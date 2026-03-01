@@ -1,3 +1,4 @@
+import { generateId } from '@/utils/generateId'
 import { db } from '@/db/client'
 import { incomeSources } from '@/db/schema'
 import { eq } from 'drizzle-orm'
@@ -15,7 +16,7 @@ export async function getAllIncomeSources(): Promise<IncomeSource[]> {
  * Insert a new income source
  */
 export async function insertIncomeSource(source: NewIncomeSource): Promise<void> {
-  const id = crypto.randomUUID()
+  const id = generateId()
   const now = new Date().toISOString()
   
   await db.insert(incomeSources).values({

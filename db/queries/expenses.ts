@@ -1,3 +1,4 @@
+import { generateId } from '@/utils/generateId'
 import { db } from '@/db/client'
 import { mandatoryExpenses } from '@/db/schema'
 import { eq } from 'drizzle-orm'
@@ -17,7 +18,7 @@ export async function getAllMandatoryExpenses(): Promise<MandatoryExpense[]> {
 export async function insertMandatoryExpense(
   expense: NewMandatoryExpense
 ): Promise<void> {
-  const id = crypto.randomUUID()
+  const id = generateId()
   const now = new Date().toISOString()
   
   await db.insert(mandatoryExpenses).values({

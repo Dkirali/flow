@@ -1,86 +1,63 @@
 import { drizzle } from 'drizzle-orm/expo-sqlite'
 import { openDatabaseSync } from 'expo-sqlite'
-import { migrate } from 'drizzle-orm/expo-sqlite/migrator'
 import * as schema from './schema'
-import migrations from './migrations/migrations'
-import { Platform } from 'react-native'
 
-// Mock database for web/Expo Go compatibility
-let db: any
-let isMockDb = false
+const expoDb = openDatabaseSync('flow.db', {
+  enableChangeListener: true,
+})
 
-if (Platform.OS === 'web') {
-  // Web mock - in-memory storage
-  console.log('[Database] Using web mock')
-  isMockDb = true
-  
-  // Create mock db with same interface
-  const mockData: Record<string, any[]> = {
-    transactions: [],
-    income_sources: [],
-    mandatory_expenses: [],
-    settings: [],
-  }
-  
-  db = {
-    select: () => ({
-      from: (table: any) => ({
-        where: () => mockData[table.name] || [],
-        all: () => mockData[table.name] || [],
-      }),
-      all: () => Promise.resolve(mockData.transactions),
-    }),
-    insert: (table: any) => ({
-      values: (data: any) => {
-        const tableName = table?.name || 'transactions'
-        if (!mockData[tableName]) mockData[tableName] = []
-        mockData[tableName].push(data)
-        return Promise.resolve()
-      },
-    }),
-    update: (table: any) => ({
-      set: (data: any) => ({
-        where: () => Promise.resolve(),
-      }),
-    }),
-    delete: (table: any) => ({
-      where: () => Promise.resolve(),
-    }),
-  }
-} else {
-  // Native SQLite
-  try {
-    const expoDb = openDatabaseSync('flow.db', {
-      enableChangeListener: true,
-    })
-    db = drizzle(expoDb, { schema })
-  } catch (error) {
-    console.log('[Database] Falling back to mock')
-    isMockDb = true
-    db = {
-      select: () => ({ from: () => ({ all: () => [] }) }),
-      insert: () => ({ values: () => Promise.resolve() }),
-      update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
-      delete: () => ({ where: () => Promise.resolve() }),
-    }
-  }
-}
+export const db = drizzle(expoDb, { schema })
 
-export { db }
-export type DB = typeof db
-
-// Run migrations on app start
 export async function runMigrations() {
-  if (isMockDb || Platform.OS === 'web') {
-    console.log('[Database] Skipping migrations (mock mode)')
-    return
-  }
-  
   try {
-    await migrate(db, migrations)
-    console.log('[Database] Migrations completed successfully')
+    expoDb.execSync(`
+      CREATE TABLE IF NOT EXISTS transactions (
+        id TEXT PRIMARY KEY NOT NULL,
+        amount REAL NOT NULL,
+        type TEXT NOT NULL,
+        category TEXT NOT NULL,
+        note TEXT,
+        date TEXT NOT NULL,
+        time TEXT NOT NULL,
+        is_mandatory INTEGER DEFAULT 0,
+        is_leisure INTEGER DEFAULT 0,
+        is_recurring INTEGER DEFAULT 0,
+        recurring_frequency TEXT,
+        recurring_day INTEGER,
+        currency_code TEXT DEFAULT 'USD',
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS income_sources (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        is_recurring INTEGER DEFAULT 1,
+        recurring_frequency TEXT,
+        recurring_day INTEGER,
+        currency_code TEXT DEFAULT 'USD',
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS mandatory_expenses (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        is_recurring INTEGER DEFAULT 1,
+        recurring_day INTEGER,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL
+      );
+    `)
+    console.log('[Database] Tables ready')
   } catch (error) {
-    console.error('[Database] Migration failed:', error)
+    console.error('[Database] Setup failed:', error)
     throw error
   }
 }

@@ -1,21 +1,114 @@
-import { View, Text, Switch, Pressable, Alert } from 'react-native'
+import { View, Text, Switch, Pressable, Alert, TouchableWithoutFeedback, Keyboard } from 'react-native'
 import { useState, useEffect } from 'react'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import Svg, { Path } from 'react-native-svg'
 import * as Notifications from 'expo-notifications'
 import { useUserStore } from '@/stores/userStore'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { ProgressDots } from '@/components/onboarding/ProgressDots'
-import { Button } from '@/components/ui/Button'
-import { Bell, BarChart3, CalendarDays, PartyPopper } from 'lucide-react-native'
+
+function ProgressDots({ total, current }: { total: number; current: number }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      {Array.from({ length: total }).map((_, index) => (
+        <Pressable
+          key={index}
+          onPress={() => {
+            if (index === 0) router.push('/(onboarding)/')
+            if (index === 1) router.push('/(onboarding)/income')
+            if (index === 2) router.push('/(onboarding)/notifications')
+          }}
+          style={{
+            width: index === current ? 32 : 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: index === current ? '#6C63FF' : '#2E2D45',
+          }}
+        />
+      ))}
+    </View>
+  )
+}
+
+function BellIcon() {
+  return (
+    <Svg width={64} height={64} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+        stroke="#6C63FF"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <Path
+        d="M13.73 21a2 2 0 0 1-3.46 0"
+        stroke="#6C63FF"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  )
+}
+
+function ChartIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 3v18h18"
+        stroke="#00C9A7"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M18 17V9"
+        stroke="#00C9A7"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M13 17V5"
+        stroke="#00C9A7"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8 17v-3"
+        stroke="#00C9A7"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+}
+
+function CalendarIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
+        stroke="#8888AA"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+}
 
 interface NotificationToggle {
   id: string
   icon: React.ReactNode
+  iconBg: string
   title: string
   subtitle: string
   enabled: boolean
-  defaultValue: boolean
 }
 
 export default function OnboardingNotificationsScreen() {
@@ -23,35 +116,32 @@ export default function OnboardingNotificationsScreen() {
   const [hasPermission, setHasPermission] = useState(false)
   
   const { completeOnboarding } = useUserStore()
-  const { 
-    notifications, 
-    setNotification 
-  } = useSettingsStore()
+  const { notifications, setNotification } = useSettingsStore()
 
   const [toggles, setToggles] = useState<NotificationToggle[]>([
     {
       id: 'dailyReminder',
-      icon: <Bell size={20} color="#6C63FF" />,
+      icon: <BellIcon />,
+      iconBg: '#6C63FF20',
       title: 'Daily Entry Reminder',
       subtitle: 'Remind me to log expenses',
       enabled: true,
-      defaultValue: true,
     },
     {
       id: 'budgetAlert',
-      icon: <BarChart3 size={20} color="#00C9A7" />,
+      icon: <ChartIcon />,
+      iconBg: '#00C9A720',
       title: 'Budget Alert',
       subtitle: 'Notify me when nearing my daily limit',
       enabled: true,
-      defaultValue: true,
     },
     {
       id: 'paydayReminder',
-      icon: <CalendarDays size={20} color="#4A4A6A" />,
+      icon: <CalendarIcon />,
+      iconBg: '#2E2D45',
       title: 'Payday Reminder',
       subtitle: 'Alert me 2 days before payday',
       enabled: false,
-      defaultValue: false,
     },
   ])
 
@@ -80,26 +170,19 @@ export default function OnboardingNotificationsScreen() {
   }
 
   const handleToggle = async (id: string, value: boolean) => {
-    // If enabling and no permission, request it first
     if (value && !hasPermission) {
       const granted = await requestPermission()
-      if (!granted) {
-        // User denied permission, don't toggle
-        return
-      }
+      if (!granted) return
     }
 
-    // Update local toggle state
     setToggles(prev =>
       prev.map(toggle =>
         toggle.id === id ? { ...toggle, enabled: value } : toggle
       )
     )
 
-    // Update settings store
     setNotification(id as keyof typeof notifications, value)
 
-    // Schedule notifications if enabled
     if (value) {
       await scheduleNotification(id)
     } else {
@@ -123,14 +206,6 @@ export default function OnboardingNotificationsScreen() {
             },
           })
           break
-        
-        case 'budgetAlert':
-          // This will be triggered dynamically when user reaches 80% of daily budget
-          break
-        
-        case 'paydayReminder':
-          // This will be calculated based on user's payday setting
-          break
       }
     } catch (error) {
       console.error('Failed to schedule notification:', error)
@@ -139,7 +214,6 @@ export default function OnboardingNotificationsScreen() {
 
   const cancelNotification = async (id: string) => {
     try {
-      // Cancel specific notification identifiers
       await Notifications.cancelScheduledNotificationAsync(id)
     } catch (error) {
       console.error('Failed to cancel notification:', error)
@@ -148,17 +222,11 @@ export default function OnboardingNotificationsScreen() {
 
   const handleStartTracking = async () => {
     setIsLoading(true)
-
     try {
-      // Mark onboarding as complete
       completeOnboarding()
-
-      // Save notification preferences to settings
       toggles.forEach(toggle => {
         setNotification(toggle.id as keyof typeof notifications, toggle.enabled)
       })
-
-      // Navigate to main app (Dashboard)
       router.replace('/(tabs)')
     } catch (error) {
       console.error('Failed to complete onboarding:', error)
@@ -169,86 +237,165 @@ export default function OnboardingNotificationsScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 px-6 pt-8">
-        {/* Progress Dots */}
-        <View className="mb-12">
-          <ProgressDots total={3} current={2} />
-        </View>
-
-        {/* Bell Icon */}
-        <View className="items-center mb-6">
-          <View className="w-24 h-24 bg-surface rounded-full items-center justify-center relative">
-            <View className="absolute w-24 h-24 bg-purple/5 rounded-full" />
-            <View className="w-16 h-16 bg-purple/10 rounded-full items-center justify-center">
-              <Bell size={32} color="#6C63FF" />
-            </View>
-            
-            <View className="absolute top-2 right-4 w-3 h-3 bg-teal rounded-full" />
-          </View>
-        </View>
-
-        {/* Title */}
-        <View className="items-center mb-8">
-          <Text className="text-text-primary text-2xl font-bold text-center mb-2">
-            Stay on top of your budget
-          </Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F0E1A' }}>
+        <View style={{ flex: 1, paddingHorizontal: 24 }}>
           
-          <Text className="text-text-secondary text-center">
-            Choose which reminders work for you
-          </Text>
-        </View>
-
-        {/* Notification Toggles */}
-        <View className="bg-surface rounded-20 mb-6">
-          {toggles.map((toggle, index) => (
-            <View
-              key={toggle.id}
-              className={`flex-row items-center px-4 py-4 ${
-                index !== toggles.length - 1 ? 'border-b border-divider' : ''
-              }`}
-            >
-              <View className="w-10 h-10 bg-surface-input rounded-full items-center justify-center mr-4">
-                {toggle.icon}
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-text-primary font-medium">{toggle.title}</Text>
-                <Text className="text-text-muted text-sm">{toggle.subtitle}</Text>
-              </View>
-
-              <Switch
-                value={toggle.enabled}
-                onValueChange={(value) => handleToggle(toggle.id, value)}
-                trackColor={{ false: '#2E2D45', true: '#00C9A7' }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-          ))}
-        </View>
-
-        {/* Helper Text */}
-        <Text className="section-label text-center mb-8">
-          YOU CAN CHANGE THESE ANYTIME IN SETTINGS
-        </Text>
-
-        {/* Spacer */}
-        <View className="flex-1" />
-
-        {/* Start Tracking Button */}
-        <Button
-          onPress={handleStartTracking}
-          disabled={isLoading}
-          className="mb-4"
-        >
-          <View className="flex-row items-center gap-2">
-            <Text className="text-white font-semibold text-lg">
-              {isLoading ? 'Starting...' : 'Start Tracking'}
-            </Text>
-            {!isLoading && <PartyPopper size={20} color="#FFFFFF" />}
+          {/* Progress Dots */}
+          <View style={{ alignItems: 'center', paddingTop: 16, paddingBottom: 24 }}>
+            <ProgressDots total={3} current={2} />
           </View>
-        </Button>
-      </View>
-    </SafeAreaView>
+
+          {/* Bell Icon with Glow */}
+          <View style={{ alignItems: 'center', marginBottom: 24 }}>
+            <View style={{
+              width: 200,
+              height: 200,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <View style={{
+                position: 'absolute',
+                width: 180,
+                height: 180,
+                borderRadius: 90,
+                backgroundColor: '#6C63FF',
+                opacity: 0.07,
+              }} />
+              <View style={{
+                width: 96,
+                height: 96,
+                backgroundColor: '#1A1928',
+                borderRadius: 48,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <BellIcon />
+              </View>
+            </View>
+          </View>
+
+          {/* Title */}
+          <View style={{ alignItems: 'center', marginBottom: 32 }}>
+            <Text style={{
+              fontSize: 32,
+              fontWeight: '800',
+              color: '#FFFFFF',
+              textAlign: 'center',
+              lineHeight: 38,
+              marginBottom: 12,
+            }}>
+              Stay on top of{'\n'}your budget
+            </Text>
+            <Text style={{
+              fontSize: 15,
+              color: '#8888AA',
+              textAlign: 'center',
+            }}>
+              Choose which reminders work for you
+            </Text>
+          </View>
+
+          {/* Notification Toggles Card */}
+          <View style={{
+            backgroundColor: '#1A1928',
+            borderRadius: 16,
+            marginBottom: 24,
+          }}>
+            {toggles.map((toggle, index) => (
+              <View
+                key={toggle.id}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  paddingVertical: 16,
+                  borderBottomWidth: index !== toggles.length - 1 ? 1 : 0,
+                  borderBottomColor: '#2E2D45',
+                }}
+              >
+                <View style={{
+                  width: 48,
+                  height: 48,
+                  backgroundColor: toggle.iconBg,
+                  borderRadius: 24,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 16,
+                }}>
+                  {toggle.icon}
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    color: '#EEEEFF',
+                    fontWeight: '600',
+                    fontSize: 16,
+                    marginBottom: 4,
+                  }}>
+                    {toggle.title}
+                  </Text>
+                  <Text style={{
+                    color: '#8888AA',
+                    fontSize: 13,
+                  }}>
+                    {toggle.subtitle}
+                  </Text>
+                </View>
+
+                <Switch
+                  value={toggle.enabled}
+                  onValueChange={(value) => handleToggle(toggle.id, value)}
+                  trackColor={{ false: '#2E2D45', true: '#00C9A7' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+            ))}
+          </View>
+
+          {/* Helper Text */}
+          <Text style={{
+            color: '#4A4A6A',
+            fontSize: 11,
+            fontWeight: '600',
+            letterSpacing: 1.5,
+            textAlign: 'center',
+            marginBottom: 24,
+          }}>
+            YOU CAN CHANGE THESE ANYTIME IN SETTINGS
+          </Text>
+
+          {/* Spacer */}
+          <View style={{ flex: 1 }} />
+
+          {/* Start Tracking Button */}
+          <Pressable
+            onPress={handleStartTracking}
+            disabled={isLoading}
+            style={{
+              backgroundColor: isLoading ? '#6C63FF50' : '#6C63FF',
+              borderRadius: 28,
+              height: 56,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#6C63FF',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.35,
+              shadowRadius: 16,
+              elevation: 8,
+              marginBottom: 40,
+            }}
+          >
+            <Text style={{
+              color: '#FFFFFF',
+              fontSize: 18,
+              fontWeight: '600',
+            }}>
+              {isLoading ? 'Starting...' : 'Start Tracking 🎉'}
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   )
 }
