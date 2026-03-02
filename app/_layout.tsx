@@ -35,10 +35,8 @@ function RootLayoutNav() {
         
         // 5. Process recurring transactions
         await processRecurringTransactions()
-        
-        console.log('[App] Initialization complete')
       } catch (err) {
-        console.error('[App] Initialization failed:', err)
+        // Error will be set below
         setError(err instanceof Error ? err.message : 'Unknown error')
       } finally {
         setIsReady(true)

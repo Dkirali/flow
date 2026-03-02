@@ -275,17 +275,13 @@ export default function OnboardingIncomeScreen() {
   }
 
   const handleContinue = async () => {
-    console.log('1. Button pressed')
     const numericAmount = parseFloat(amount)
-    console.log('2. Amount:', numericAmount)
     
     if (isNaN(numericAmount) || numericAmount <= 0) {
-      console.log('3. Validation failed')
       setError('Please enter a valid amount')
       return
     }
 
-    console.log('4. Calling addIncomeSource')
     setIsLoading(true)
     try {
       await addIncomeSource({
@@ -301,12 +297,9 @@ export default function OnboardingIncomeScreen() {
             ? customDay : 1,
         currencyCode: currency,
       })
-      console.log('5. addIncomeSource succeeded')
       recalculate()
-      console.log('6. Navigating')
       router.push('/(onboarding)/notifications')
     } catch (err) {
-      console.error('ERROR:', err)
       setError('Failed to save. Please try again.')
     } finally {
       setIsLoading(false)

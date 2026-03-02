@@ -10,8 +10,6 @@ import type { IncomeSource, MandatoryExpense } from '@/types/transaction'
  * Auto-creates entries for today if they don't exist yet
  */
 export async function processRecurringTransactions() {
-  console.log('[RecurringEngine] Processing recurring transactions...')
-  
   const today = new Date()
   const dayOfMonth = getDate(today)
   
@@ -25,7 +23,6 @@ export async function processRecurringTransactions() {
       const alreadyExists = await checkTodayTransactionExists(source.id, 'income')
       if (!alreadyExists) {
         await createTransactionFromSource(source)
-        console.log(`[RecurringEngine] Created income transaction for: ${source.name}`)
       }
     }
 
@@ -38,13 +35,11 @@ export async function processRecurringTransactions() {
       const alreadyExists = await checkTodayTransactionExists(expense.id, 'expense')
       if (!alreadyExists) {
         await createTransactionFromExpense(expense)
-        console.log(`[RecurringEngine] Created expense transaction for: ${expense.name}`)
       }
     }
     
-    console.log('[RecurringEngine] Processing complete')
   } catch (error) {
-    console.error('[RecurringEngine] Error processing recurring transactions:', error)
+    // Errors handled silently in production
   }
 }
 
@@ -70,10 +65,6 @@ async function checkTodayTransactionExists(
 
     return result.length > 0
   } catch (error) {
-    console.error(
-      '[RecurringEngine] Error checking today transactions:',
-      error
-    )
     return false
   }
 }

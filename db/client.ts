@@ -55,9 +55,7 @@ export async function runMigrations() {
         value TEXT NOT NULL
       );
     `)
-    console.log('[Database] Tables ready')
   } catch (error) {
-    console.error('[Database] Setup failed:', error)
     throw error
   }
 }

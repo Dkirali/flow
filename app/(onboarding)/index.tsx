@@ -90,7 +90,7 @@ export default function OnboardingNameScreen() {
 
       router.push('/(onboarding)/income')
     } catch (error) {
-      console.error('Failed to save name:', error)
+      // Error handled silently
     } finally {
       setIsLoading(false)
     }

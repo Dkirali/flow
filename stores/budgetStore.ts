@@ -47,7 +47,7 @@ export const useBudgetStore = create<BudgetStore>()(
           set({ incomeSources: sources as IncomeSource[] })
           get().recalculate()
         } catch (error) {
-          console.error('Failed to fetch income sources:', error)
+          
         }
       },
 
@@ -57,7 +57,7 @@ export const useBudgetStore = create<BudgetStore>()(
           set({ mandatoryExpenses: expenses as MandatoryExpense[] })
           get().recalculate()
         } catch (error) {
-          console.error('Failed to fetch mandatory expenses:', error)
+          
         }
       },
 
@@ -77,7 +77,7 @@ export const useBudgetStore = create<BudgetStore>()(
           await db.insert(incomeSources).values(sourceToInsert)
           await get().fetchIncomeSources()
         } catch (error) {
-          console.error('Failed to add income source:', error)
+          
           throw error
         }
       },
@@ -87,7 +87,7 @@ export const useBudgetStore = create<BudgetStore>()(
           await db.update(incomeSources).set(updates).where(eq(incomeSources.id, id))
           await get().fetchIncomeSources()
         } catch (error) {
-          console.error('Failed to update income source:', error)
+          
           throw error
         }
       },
@@ -97,7 +97,7 @@ export const useBudgetStore = create<BudgetStore>()(
           await db.delete(incomeSources).where(eq(incomeSources.id, id))
           await get().fetchIncomeSources()
         } catch (error) {
-          console.error('Failed to delete income source:', error)
+          
           throw error
         }
       },
@@ -117,7 +117,7 @@ export const useBudgetStore = create<BudgetStore>()(
           await db.insert(mandatoryExpenses).values(expenseToInsert)
           await get().fetchMandatoryExpenses()
         } catch (error) {
-          console.error('Failed to add mandatory expense:', error)
+          
           throw error
         }
       },
@@ -127,7 +127,7 @@ export const useBudgetStore = create<BudgetStore>()(
           await db.update(mandatoryExpenses).set(updates).where(eq(mandatoryExpenses.id, id))
           await get().fetchMandatoryExpenses()
         } catch (error) {
-          console.error('Failed to update mandatory expense:', error)
+          
           throw error
         }
       },
@@ -137,7 +137,7 @@ export const useBudgetStore = create<BudgetStore>()(
           await db.delete(mandatoryExpenses).where(eq(mandatoryExpenses.id, id))
           await get().fetchMandatoryExpenses()
         } catch (error) {
-          console.error('Failed to delete mandatory expense:', error)
+          
           throw error
         }
       },

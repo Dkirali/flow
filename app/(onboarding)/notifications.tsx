@@ -30,16 +30,33 @@ function ProgressDots({ total, current }: { total: number; current: number }) {
   )
 }
 
+// Large filled bell icon for the hero section
 function BellIcon() {
   return (
     <Svg width={64} height={64} viewBox="0 0 24 24" fill="none">
       <Path
         d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+        fill="#6C63FF"
+      />
+      <Path
+        d="M13.73 21a2 2 0 0 1-3.46 0"
         stroke="#6C63FF"
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
+      />
+    </Svg>
+  )
+}
+
+// Small filled bell icon for the notification toggle
+function SmallBellIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+        fill="#6C63FF"
       />
       <Path
         d="M13.73 21a2 2 0 0 1-3.46 0"
@@ -121,7 +138,7 @@ export default function OnboardingNotificationsScreen() {
   const [toggles, setToggles] = useState<NotificationToggle[]>([
     {
       id: 'dailyReminder',
-      icon: <BellIcon />,
+      icon: <SmallBellIcon />,
       iconBg: '#6C63FF20',
       title: 'Daily Entry Reminder',
       subtitle: 'Remind me to log expenses',
@@ -208,7 +225,7 @@ export default function OnboardingNotificationsScreen() {
           break
       }
     } catch (error) {
-      console.error('Failed to schedule notification:', error)
+      
     }
   }
 
@@ -216,7 +233,7 @@ export default function OnboardingNotificationsScreen() {
     try {
       await Notifications.cancelScheduledNotificationAsync(id)
     } catch (error) {
-      console.error('Failed to cancel notification:', error)
+      
     }
   }
 
@@ -229,7 +246,7 @@ export default function OnboardingNotificationsScreen() {
       })
       router.replace('/(tabs)')
     } catch (error) {
-      console.error('Failed to complete onboarding:', error)
+      
       Alert.alert('Error', 'Failed to complete setup. Please try again.')
     } finally {
       setIsLoading(false)

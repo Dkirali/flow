@@ -33,7 +33,7 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       const allTransactions = await db.select().from(transactions)
       set({ transactions: allTransactions as Transaction[] })
     } catch (error) {
-      console.error('Failed to fetch transactions:', error)
+      
     } finally {
       set({ isLoading: false })
     }
@@ -89,7 +89,7 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
         }
       }
     } catch (error) {
-      console.error('Failed to add transaction:', error)
+      
       throw error
     }
   },
@@ -99,7 +99,7 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       await db.update(transactions).set(updates).where(eq(transactions.id, id))
       await get().fetchAll()
     } catch (error) {
-      console.error('Failed to update transaction:', error)
+      
       throw error
     }
   },
@@ -109,7 +109,7 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       await db.delete(transactions).where(eq(transactions.id, id))
       await get().fetchAll()
     } catch (error) {
-      console.error('Failed to delete transaction:', error)
+      
       throw error
     }
   },
