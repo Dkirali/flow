@@ -13,7 +13,7 @@ import { CurrencySelector } from '@/components/ui/CurrencySelector'
 import { getCurrencyByCode } from '@/constants/currencies'
 import { ChevronDown, Repeat } from 'lucide-react-native'
 
-type PaydayOption = '1st' | '15th' | 'last' | 'custom'
+type PaydayOption = '1st' | '15th' | 'biweekly' | 'custom'
 
 function ProgressDots({ 
   total, 
@@ -284,17 +284,24 @@ export default function OnboardingIncomeScreen() {
 
     setIsLoading(true)
     try {
+      // Save income to settings store for dashboard access
+      const { setIncome } = useSettingsStore.getState()
+      const paydayDayValue =
+        paydayOption === '15th'     ? 15 :
+        paydayOption === 'custom' && customDay ? customDay : 1
+
+      const frequency: 'weekly' | 'bi-weekly' | 'monthly' =
+        paydayOption === 'biweekly' ? 'bi-weekly' : 'monthly'
+
+      setIncome(numericAmount, paydayDayValue, frequency)
+      
       await addIncomeSource({
         name: 'Monthly Income',
         amount: numericAmount,
         category: 'salary',
         isRecurring,
         recurringFrequency: 'monthly',
-        recurringDay: 
-          paydayOption === '15th' ? 15 :
-          paydayOption === 'last' ? 31 :
-          paydayOption === 'custom' && customDay 
-            ? customDay : 1,
+        recurringDay: paydayDayValue,
         currencyCode: currency,
       })
       recalculate()
@@ -311,10 +318,10 @@ export default function OnboardingIncomeScreen() {
   }
 
   const paydayOptions = [
-    { id: '1st', label: '1st of Month' },
-    { id: '15th', label: '15th of Month' },
-    { id: 'last', label: 'Last Day' },
-    { id: 'custom', label: 'Custom Date' },
+    { id: '1st',      label: '1st of Month' },
+    { id: '15th',     label: '15th of Month' },
+    { id: 'biweekly', label: 'Bi-weekly' },
+    { id: 'custom',   label: 'Custom Date' },
   ]
 
   return (

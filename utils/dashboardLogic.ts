@@ -58,34 +58,34 @@ export function aggregateTransactionsByPeriod(
 }
 
 function aggregateByHour(transactions: Transaction[], date: Date): ChartDataPoint[] {
-  const dayStart = startOfDay(date)
-  const dayEnd = endOfDay(date)
+  // Compare today vs yesterday
+  const todayStart = startOfDay(date)
+  const todayEnd = endOfDay(date)
   
-  const timeBlocks = [
-    { label: '12-4AM', start: 0, end: 4 },
-    { label: '4-8AM', start: 4, end: 8 },
-    { label: '8-12PM', start: 8, end: 12 },
-    { label: '12-4PM', start: 12, end: 16 },
-    { label: '4-8PM', start: 16, end: 20 },
-    { label: '8-12AM', start: 20, end: 24 },
+  const yesterday = new Date(date.getTime() - 24 * 60 * 60 * 1000)
+  const yesterdayStart = startOfDay(yesterday)
+  const yesterdayEnd = endOfDay(yesterday)
+  
+  const days = [
+    { label: 'Yesterday', start: yesterdayStart, end: yesterdayEnd },
+    { label: 'Today', start: todayStart, end: todayEnd },
   ]
 
-  return timeBlocks.map(block => {
-    const blockTransactions = transactions.filter(t => {
-      const hour = t.date.getHours()
-      return t.date >= dayStart && t.date <= dayEnd && hour >= block.start && hour < block.end
-    })
+  return days.map(day => {
+    const dayTransactions = transactions.filter(t =>
+      t.date >= day.start && t.date <= day.end
+    )
 
-    const income = blockTransactions
+    const income = dayTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0)
     
-    const expense = blockTransactions
+    const expense = dayTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0)
 
     return {
-      label: block.label,
+      label: day.label,
       income,
       expense,
       savings: income - expense,
@@ -94,34 +94,34 @@ function aggregateByHour(transactions: Transaction[], date: Date): ChartDataPoin
 }
 
 function aggregateByWeek(transactions: Transaction[], date: Date): ChartDataPoint[] {
-  const monthStart = startOfMonth(date)
-  const monthEnd = endOfMonth(date)
+  // Get current week (Monday-Sunday)
+  const currentWeekStart = startOfWeek(date, { weekStartsOn: 1 }) // 1 = Monday
+  const currentWeekEnd = endOfWeek(date, { weekStartsOn: 1 })
   
-  const weeks: Date[] = []
-  let currentWeek = startOfWeek(monthStart, { weekStartsOn: 1 })
+  // Get previous week
+  const prevWeekStart = new Date(currentWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const prevWeekEnd = new Date(currentWeekStart.getTime() - 1)
   
-  while (currentWeek <= monthEnd) {
-    weeks.push(currentWeek)
-    currentWeek = new Date(currentWeek.getTime() + 7 * 24 * 60 * 60 * 1000)
-  }
+  const weeks = [
+    { label: 'Last Week', start: prevWeekStart, end: prevWeekEnd },
+    { label: 'This Week', start: currentWeekStart, end: currentWeekEnd },
+  ]
 
-  return weeks.map((weekStart, index) => {
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 })
-    
-    const weekTransactions = transactions.filter(t => 
-      t.date >= weekStart && t.date <= weekEnd
+  return weeks.map((week) => {
+    const weekTransactions = transactions.filter(t =>
+      t.date >= week.start && t.date <= week.end
     )
 
     const income = weekTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0)
-    
+
     const expense = weekTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0)
 
     return {
-      label: `W${index + 1}`,
+      label: week.label,
       income,
       expense,
       savings: income - expense,
@@ -130,30 +130,34 @@ function aggregateByWeek(transactions: Transaction[], date: Date): ChartDataPoin
 }
 
 function aggregateByMonth(transactions: Transaction[], date: Date): ChartDataPoint[] {
-  const months: Date[] = []
+  // Compare this month vs last month
+  const thisMonthStart = startOfMonth(date)
+  const thisMonthEnd = endOfMonth(date)
   
-  for (let i = 11; i >= 0; i--) {
-    months.push(subMonths(date, i))
-  }
+  const lastMonthDate = subMonths(date, 1)
+  const lastMonthStart = startOfMonth(lastMonthDate)
+  const lastMonthEnd = endOfMonth(lastMonthDate)
+  
+  const months = [
+    { label: 'Last Month', start: lastMonthStart, end: lastMonthEnd },
+    { label: 'This Month', start: thisMonthStart, end: thisMonthEnd },
+  ]
 
-  return months.map(monthDate => {
-    const monthStart = startOfMonth(monthDate)
-    const monthEnd = endOfMonth(monthDate)
-    
-    const monthTransactions = transactions.filter(t => 
-      t.date >= monthStart && t.date <= monthEnd
+  return months.map(month => {
+    const monthTransactions = transactions.filter(t =>
+      t.date >= month.start && t.date <= month.end
     )
 
     const income = monthTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0)
-    
+
     const expense = monthTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0)
 
     return {
-      label: format(monthDate, 'MMM'),
+      label: month.label,
       income,
       expense,
       savings: income - expense,
@@ -174,17 +178,30 @@ export function calculateDashboardStats(
     t.date >= start && t.date <= end
   )
 
-  const totalIncome = periodTransactions
+  const transactionIncome = periodTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0)
-  
+
+  const daysInMonth = endOfMonth(now).getDate()
+
+  // When no income transactions exist, fall back to the declared monthly income
+  // scaled to the selected period so the dashboard always shows meaningful data
+  const declaredPeriodIncome = (() => {
+    if (transactionIncome > 0) return transactionIncome
+    switch (period) {
+      case 'day': return monthlyIncome / daysInMonth
+      case 'month': return monthlyIncome
+      case 'year': return monthlyIncome * 12
+    }
+  })()
+
+  const totalIncome = declaredPeriodIncome
+
   const totalExpenses = periodTransactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0)
 
   const totalSavings = totalIncome - totalExpenses
-
-  const daysInMonth = endOfMonth(now).getDate()
   const dailyBudget = monthlyIncome / daysInMonth
 
   const todayStart = startOfDay(now)
