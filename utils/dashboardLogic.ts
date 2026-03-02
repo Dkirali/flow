@@ -1,0 +1,346 @@
+import { 
+  startOfWeek, 
+  endOfWeek, 
+  startOfMonth, 
+  endOfMonth, 
+  startOfDay, 
+  endOfDay, 
+  format, 
+  subMonths 
+} from 'date-fns'
+
+// Types
+export type TimePeriod = 'day' | 'month' | 'year'
+
+export interface Transaction {
+  id: string
+  amount: number
+  category: string
+  description: string
+  date: Date
+  type: 'income' | 'expense'
+}
+
+export interface ChartDataPoint {
+  label: string
+  income: number
+  expense: number
+  savings: number
+}
+
+export interface DashboardStats {
+  totalIncome: number
+  totalExpenses: number
+  totalSavings: number
+  dailyBudget: number
+  remainingBudget: number
+  spentToday: number
+  daysRemaining: number
+}
+
+// Aggregate transactions by time period
+export function aggregateTransactionsByPeriod(
+  transactions: Transaction[],
+  period: TimePeriod
+): ChartDataPoint[] {
+  const now = new Date()
+
+  switch (period) {
+    case 'day':
+      return aggregateByHour(transactions, now)
+    case 'month':
+      return aggregateByWeek(transactions, now)
+    case 'year':
+      return aggregateByMonth(transactions, now)
+    default:
+      return []
+  }
+}
+
+function aggregateByHour(transactions: Transaction[], date: Date): ChartDataPoint[] {
+  // Compare today vs yesterday
+  const todayStart = startOfDay(date)
+  const todayEnd = endOfDay(date)
+  
+  const yesterday = new Date(date.getTime() - 24 * 60 * 60 * 1000)
+  const yesterdayStart = startOfDay(yesterday)
+  const yesterdayEnd = endOfDay(yesterday)
+  
+  const days = [
+    { label: 'Yesterday', start: yesterdayStart, end: yesterdayEnd },
+    { label: 'Today', start: todayStart, end: todayEnd },
+  ]
+
+  return days.map(day => {
+    const dayTransactions = transactions.filter(t =>
+      t.date >= day.start && t.date <= day.end
+    )
+
+    const income = dayTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0)
+    
+    const expense = dayTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0)
+
+    return {
+      label: day.label,
+      income,
+      expense,
+      savings: income - expense,
+    }
+  })
+}
+
+function aggregateByWeek(transactions: Transaction[], date: Date): ChartDataPoint[] {
+  // Get current week (Monday-Sunday)
+  const currentWeekStart = startOfWeek(date, { weekStartsOn: 1 }) // 1 = Monday
+  const currentWeekEnd = endOfWeek(date, { weekStartsOn: 1 })
+  
+  // Get previous week
+  const prevWeekStart = new Date(currentWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const prevWeekEnd = new Date(currentWeekStart.getTime() - 1)
+  
+  const weeks = [
+    { label: 'Last Week', start: prevWeekStart, end: prevWeekEnd },
+    { label: 'This Week', start: currentWeekStart, end: currentWeekEnd },
+  ]
+
+  return weeks.map((week) => {
+    const weekTransactions = transactions.filter(t =>
+      t.date >= week.start && t.date <= week.end
+    )
+
+    const income = weekTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0)
+
+    const expense = weekTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0)
+
+    return {
+      label: week.label,
+      income,
+      expense,
+      savings: income - expense,
+    }
+  })
+}
+
+function aggregateByMonth(transactions: Transaction[], date: Date): ChartDataPoint[] {
+  // Compare this month vs last month
+  const thisMonthStart = startOfMonth(date)
+  const thisMonthEnd = endOfMonth(date)
+  
+  const lastMonthDate = subMonths(date, 1)
+  const lastMonthStart = startOfMonth(lastMonthDate)
+  const lastMonthEnd = endOfMonth(lastMonthDate)
+  
+  const months = [
+    { label: 'Last Month', start: lastMonthStart, end: lastMonthEnd },
+    { label: 'This Month', start: thisMonthStart, end: thisMonthEnd },
+  ]
+
+  return months.map(month => {
+    const monthTransactions = transactions.filter(t =>
+      t.date >= month.start && t.date <= month.end
+    )
+
+    const income = monthTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0)
+
+    const expense = monthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0)
+
+    return {
+      label: month.label,
+      income,
+      expense,
+      savings: income - expense,
+    }
+  })
+}
+
+export function calculateDashboardStats(
+  transactions: Transaction[],
+  period: TimePeriod,
+  monthlyIncome: number = 5000
+): DashboardStats {
+  const now = new Date()
+  
+  const { start, end } = getDateRange(period, now)
+  
+  const periodTransactions = transactions.filter(t => 
+    t.date >= start && t.date <= end
+  )
+
+  const transactionIncome = periodTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0)
+
+  const daysInMonth = endOfMonth(now).getDate()
+
+  // When no income transactions exist, fall back to the declared monthly income
+  // scaled to the selected period so the dashboard always shows meaningful data
+  const declaredPeriodIncome = (() => {
+    if (transactionIncome > 0) return transactionIncome
+    switch (period) {
+      case 'day': return monthlyIncome / daysInMonth
+      case 'month': return monthlyIncome
+      case 'year': return monthlyIncome * 12
+    }
+  })()
+
+  const totalIncome = declaredPeriodIncome
+
+  const totalExpenses = periodTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0)
+
+  const totalSavings = totalIncome - totalExpenses
+  const dailyBudget = monthlyIncome / daysInMonth
+
+  const todayStart = startOfDay(now)
+  const todayEnd = endOfDay(now)
+  const todayTransactions = transactions.filter(t => 
+    t.date >= todayStart && t.date <= todayEnd && t.type === 'expense'
+  )
+  const spentToday = todayTransactions.reduce((sum, t) => sum + t.amount, 0)
+
+  const remainingBudget = Math.max(0, dailyBudget - spentToday)
+  const daysRemaining = daysInMonth - now.getDate() + 1
+
+  return {
+    totalIncome,
+    totalExpenses,
+    totalSavings,
+    dailyBudget,
+    remainingBudget,
+    spentToday,
+    daysRemaining,
+  }
+}
+
+function getDateRange(period: TimePeriod, date: Date): { start: Date; end: Date } {
+  switch (period) {
+    case 'day':
+      return {
+        start: startOfDay(date),
+        end: endOfDay(date),
+      }
+    case 'month':
+      return {
+        start: startOfMonth(date),
+        end: endOfMonth(date),
+      }
+    case 'year':
+      return {
+        start: startOfMonth(subMonths(date, 11)),
+        end: endOfMonth(date),
+      }
+  }
+}
+
+export function calculateGoalProgress(
+  transactions: Transaction[],
+  monthlyIncome: number,
+  savingsGoalPercentage: number = 20
+) {
+  const now = new Date()
+  const monthStart = startOfMonth(now)
+  const monthEnd = endOfMonth(now)
+  
+  const monthTransactions = transactions.filter(t => 
+    t.date >= monthStart && t.date <= monthEnd
+  )
+
+  const income = monthTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0)
+  
+  const expenses = monthTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0)
+
+  const currentSavings = income - expenses
+  const goalAmount = monthlyIncome * (savingsGoalPercentage / 100)
+  const remainingToGoal = goalAmount - currentSavings
+
+  const daysInMonth = monthEnd.getDate()
+  const daysPassed = now.getDate()
+  const expectedSavings = (goalAmount / daysInMonth) * daysPassed
+  const isOnTrack = currentSavings >= expectedSavings
+
+  let message = ''
+  if (remainingToGoal <= 0) {
+    message = '🎉 You hit your savings goal! Amazing work!'
+  } else if (remainingToGoal <= 10) {
+    message = `TRY SAVING $${Math.ceil(remainingToGoal)} MORE THIS WEEK TO HIT YOUR GOAL`
+  } else if (isOnTrack) {
+    message = `You're on track! Keep saving $${Math.ceil(remainingToGoal / (daysInMonth - daysPassed))} per day`
+  } else {
+    message = `Save $${Math.ceil(remainingToGoal / (daysInMonth - daysPassed))} daily to reach your goal`
+  }
+
+  return {
+    goalAmount,
+    currentSavings,
+    remainingToGoal,
+    isOnTrack,
+    message,
+  }
+}
+
+export function getRecentTransactions(
+  transactions: Transaction[],
+  limit: number = 5
+): Transaction[] {
+  return transactions
+    .filter(t => t.type === 'expense')
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .slice(0, limit)
+}
+
+export function formatTransactionDate(date: Date): string {
+  const now = new Date()
+  const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (diffInDays === 0) {
+    return format(date, 'h:mm a')
+  } else if (diffInDays === 1) {
+    return 'YESTERDAY'
+  } else if (diffInDays < 7) {
+    return format(date, 'EEEE').toUpperCase()
+  } else {
+    return format(date, 'MMM d').toUpperCase()
+  }
+}
+
+export function getGreeting(): string {
+  const hour = new Date().getHours()
+  
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+export function calculateBudgetRing(
+  dailyBudget: number,
+  spentToday: number
+) {
+  const spent = Math.min(spentToday, dailyBudget)
+  const remaining = Math.max(0, dailyBudget - spentToday)
+  const percentage = dailyBudget > 0 ? (spent / dailyBudget) * 100 : 0
+  const isOverBudget = spentToday > dailyBudget
+
+  return {
+    percentage: Math.min(percentage, 100),
+    remaining,
+    spent: spentToday,
+    isOverBudget,
+  }
+}

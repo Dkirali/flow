@@ -22,6 +22,10 @@ interface SettingsStore {
   aiDataScope: '1M' | '3M' | '6M' | 'all'
   investmentComparisons: boolean
   notifications: NotificationSettings
+  // Income settings
+  monthlyIncome: number
+  paydayDay: number
+  paydayFrequency: 'weekly' | 'bi-weekly' | 'monthly'
   setCurrency: (code: string) => void
   setTheme: (theme: 'light' | 'dark' | 'system') => void
   setAccentColor: (color: string) => void
@@ -29,6 +33,8 @@ interface SettingsStore {
   setAiDataScope: (scope: '1M' | '3M' | '6M' | 'all') => void
   setInvestmentComparisons: (enabled: boolean) => void
   setNotification: (key: keyof NotificationSettings, value: boolean | string | number) => void
+  // Income methods
+  setIncome: (income: number, paydayDay: number, frequency: 'weekly' | 'bi-weekly' | 'monthly') => void
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -50,6 +56,10 @@ export const useSettingsStore = create<SettingsStore>()(
         monthlyReport: false,
         recurringAlert: false,
       },
+      // Income defaults
+      monthlyIncome: 0,
+      paydayDay: 1,
+      paydayFrequency: 'monthly' as 'weekly' | 'bi-weekly' | 'monthly',
       setCurrency: (code) => {
         const currency = getCurrencyByCode(code)
         set({ currency: code, currencySymbol: currency.symbol })
@@ -66,6 +76,9 @@ export const useSettingsStore = create<SettingsStore>()(
             [key]: value,
           },
         })),
+      // Income method
+      setIncome: (income, paydayDay, frequency) =>
+        set({ monthlyIncome: income, paydayDay, paydayFrequency: frequency }),
     }),
     {
       name: 'settings-storage',
