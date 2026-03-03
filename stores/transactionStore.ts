@@ -21,6 +21,7 @@ interface TransactionStore {
   getByDate: (date: string) => Transaction[]
   getByMonth: (year: number, month: number) => Transaction[]
   getTodayExpenses: () => Transaction[]
+  clearAll: () => Promise<void>
 }
 
 export const useTransactionStore = create<TransactionStore>()((set, get) => ({
@@ -127,5 +128,15 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
   getTodayExpenses: () => {
     const today = getTodayString()
     return get().transactions.filter((t) => t.date === today && t.type === 'expense')
+  },
+
+  clearAll: async () => {
+    try {
+      await db.delete(transactions)
+      set({ transactions: [] })
+      useBudgetStore.getState().recalculate()
+    } catch (error) {
+      throw error
+    }
   },
 }))

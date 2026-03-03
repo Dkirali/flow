@@ -22,7 +22,7 @@ export async function processRecurringTransactions() {
       
       const alreadyExists = await checkTodayTransactionExists(source.id, 'income')
       if (!alreadyExists) {
-        await createTransactionFromSource(source)
+        await createTransactionFromSource(source as IncomeSource)
       }
     }
 
@@ -34,7 +34,7 @@ export async function processRecurringTransactions() {
       
       const alreadyExists = await checkTodayTransactionExists(expense.id, 'expense')
       if (!alreadyExists) {
-        await createTransactionFromExpense(expense)
+        await createTransactionFromExpense(expense as MandatoryExpense)
       }
     }
     

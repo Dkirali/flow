@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path, Circle, Rect } from 'react-native-svg'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useBudgetStore } from '@/stores/budgetStore'
+import { useTransactionStore } from '@/stores/transactionStore'
 import { CurrencySelector } from '@/components/ui/CurrencySelector'
 import { getCurrencyByCode } from '@/constants/currencies'
 import { ChevronDown, Repeat } from 'lucide-react-native'
@@ -33,7 +34,7 @@ function ProgressDots({
           key={index}
           onPress={() => {
             if (index === 0) 
-              router.push('/(onboarding)/')
+              router.push('/(onboarding)')
             if (index === 1) 
               router.push('/(onboarding)/income')
             if (index === 2) 
@@ -263,6 +264,7 @@ export default function OnboardingIncomeScreen() {
 
   const { currency, setCurrency } = useSettingsStore()
   const { addIncomeSource, recalculate } = useBudgetStore()
+  const { addTransaction } = useTransactionStore()
   const currentCurrency = getCurrencyByCode(currency)
 
   const handleAmountChange = (text: string) => {
@@ -295,6 +297,7 @@ export default function OnboardingIncomeScreen() {
 
       setIncome(numericAmount, paydayDayValue, frequency)
       
+      // Add income source for budget calculations
       await addIncomeSource({
         name: 'Monthly Income',
         amount: numericAmount,
@@ -304,6 +307,19 @@ export default function OnboardingIncomeScreen() {
         recurringDay: paydayDayValue,
         currencyCode: currency,
       })
+      
+      // Also add as a transaction so it shows in dashboard
+      const now = new Date()
+      await addTransaction({
+        amount: numericAmount,
+        type: 'income',
+        category: 'salary',
+        note: 'Monthly Income',
+        date: now.toISOString().split('T')[0],
+        time: now.toTimeString().slice(0, 5),
+        currencyCode: currency,
+      })
+      
       recalculate()
       router.push('/(onboarding)/notifications')
     } catch (err) {

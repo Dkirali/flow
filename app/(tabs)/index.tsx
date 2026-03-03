@@ -1,5 +1,6 @@
-import { View, Text, Pressable, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native'
+import { View, Text, Pressable, ScrollView, SafeAreaView, ActivityIndicator, useColorScheme } from 'react-native'
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { router } from 'expo-router'
 import Svg, { Path } from 'react-native-svg'
 import { useUserStore } from '@/stores/userStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -19,7 +20,8 @@ import {
 import ProgressRing from '@/components/ui/ProgressRing'
 import DraggableFAB from '@/components/ui/DraggableFAB'
 import HorizontalBarChart from '@/components/ui/HorizontalBarChart'
-import { AddTransactionSheet } from '@/components/ui/AddTransactionSheet'
+import { SwipeableTransactionItem } from '@/components/ui/SwipeableTransactionItem'
+import { AddTransactionModal } from '@/components/ui/AddTransactionModal'
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
@@ -66,7 +68,7 @@ function getPeriodLabel(period: TimePeriod): string {
 
 // ─── Category icon helper ─────────────────────────────────────────────────────
 
-function CategoryIcon({ category }: { category: string }) {
+function CategoryIcon({ category, isDark }: { category: string; isDark: boolean }) {
   const lower = category.toLowerCase()
   let icon = '💳'
   if (lower.includes('food') || lower.includes('drink') || lower.includes('coffee') || lower.includes('dining') || lower.includes('grocer')) icon = '🍔'
@@ -78,7 +80,7 @@ function CategoryIcon({ category }: { category: string }) {
   else if (lower.includes('salary') || lower.includes('income')) icon = '💰'
   else if (lower.includes('freelance')) icon = '💻'
   return (
-    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#2E2D45', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: isDark ? '#2E2D45' : '#E5E7EB', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
       <Text style={{ fontSize: 20 }}>{icon}</Text>
     </View>
   )
@@ -136,14 +138,28 @@ const periods: { id: TimePeriod; label: string }[] = [
 export default function DashboardScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('month')
   const [showChartOptions, setShowChartOptions] = useState(false)
-  const [showAddSheet, setShowAddSheet] = useState(false)
+  const [showTransactionModal, setShowTransactionModal] = useState(false)
+  const [editTransaction, setEditTransaction] = useState<DashboardTransaction | null>(null)
   const [isHydrated, setIsHydrated] = useState(false)
   const isMounted = useRef(true)
 
   const { name } = useUserStore()
-  const { monthlyIncome: settingsIncome } = useSettingsStore()
+  const { monthlyIncome: settingsIncome, theme, accentColor, currencySymbol } = useSettingsStore()
   const { incomeSources } = useBudgetStore()
-  const { transactions: storeTransactions } = useTransactionStore()
+  const { transactions: storeTransactions, deleteTransaction, updateTransaction } = useTransactionStore()
+  const systemScheme = useColorScheme()
+
+  const effectiveTheme = theme === 'system' ? (systemScheme ?? 'dark') : theme
+  const isDark = effectiveTheme === 'dark'
+
+  const colors = {
+    bg: isDark ? '#0F0E1A' : '#F8F9FA',
+    card: isDark ? '#1A1928' : '#FFFFFF',
+    text: isDark ? '#FFFFFF' : '#1A1A2E',
+    subtext: isDark ? '#8888AA' : '#6B7280',
+    divider: isDark ? '#2E2D45' : '#E5E7EB',
+    accent: accentColor,
+  }
 
   const greeting = getGreeting()
   const userName = name || 'Alex'
@@ -192,38 +208,38 @@ export default function DashboardScreen() {
   const budgetRing      = useMemo(() => calculateBudgetRing(stats.dailyBudget, stats.spentToday), [stats])
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F0E1A' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
 
           {/* Header */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#6C63FF', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700' }}>{userName.charAt(0).toUpperCase()}</Text>
               </View>
               <View>
-                <Text style={{ color: '#8888AA', fontSize: 12, letterSpacing: 1 }}>WELCOME BACK</Text>
-                <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700' }}>{greeting}, {userName}</Text>
+                <Text style={{ color: colors.subtext, fontSize: 12, letterSpacing: 1 }}>WELCOME BACK</Text>
+                <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700' }}>{greeting}, {userName}</Text>
               </View>
             </View>
-            <Pressable style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#1A1928', alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>
               <BellIcon />
             </Pressable>
           </View>
 
           {/* Time Period Selector */}
-          <View style={{ flexDirection: 'row', backgroundColor: '#1A1928', borderRadius: 28, padding: 4, marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', backgroundColor: colors.card, borderRadius: 28, padding: 4, marginBottom: 16 }}>
             {periods.map(period => (
               <Pressable
                 key={period.id}
                 onPress={() => setSelectedPeriod(period.id)}
                 style={{
                   flex: 1, paddingVertical: 10, borderRadius: 24, alignItems: 'center',
-                  backgroundColor: selectedPeriod === period.id ? '#6C63FF' : 'transparent',
+                  backgroundColor: selectedPeriod === period.id ? colors.accent : 'transparent',
                 }}
               >
-                <Text style={{ color: selectedPeriod === period.id ? '#FFFFFF' : '#8888AA', fontWeight: '600', fontSize: 14 }}>
+                <Text style={{ color: selectedPeriod === period.id ? '#FFFFFF' : colors.subtext, fontWeight: '600', fontSize: 14 }}>
                   {period.label}
                 </Text>
               </Pressable>
@@ -232,7 +248,7 @@ export default function DashboardScreen() {
 
           {/* Goal Banner */}
           {goalProgress.remainingToGoal > 0 && goalProgress.remainingToGoal <= 50 && (
-            <View style={{ backgroundColor: '#6C63FF', borderRadius: 16, padding: 16, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ backgroundColor: colors.accent, borderRadius: 16, padding: 16, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={{ fontSize: 16 }}>✨</Text>
               <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600', flex: 1, letterSpacing: 0.5 }}>
                 {goalProgress.message}
@@ -241,21 +257,21 @@ export default function DashboardScreen() {
           )}
 
           {/* Financial Overview Card */}
-          <View style={{ backgroundColor: '#1A1928', borderRadius: 20, padding: 20, marginBottom: 16 }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 20, marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <View>
-                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 4 }}>Financial Overview</Text>
-                <Text style={{ color: '#8888AA', fontSize: 13 }}>Income vs Expenses vs Savings</Text>
+                <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', marginBottom: 4 }}>Financial Overview</Text>
+                <Text style={{ color: colors.subtext, fontSize: 13 }}>Income vs Expenses vs Savings</Text>
               </View>
               <Pressable onPress={() => setShowChartOptions(true)}>
-                <Text style={{ color: '#8888AA', fontSize: 20 }}>⋯</Text>
+                <Text style={{ color: colors.subtext, fontSize: 20 }}>⋯</Text>
               </Pressable>
             </View>
 
             {!isHydrated ? (
               <View style={{ height: 180, alignItems: 'center', justifyContent: 'center' }}>
-                <ActivityIndicator color="#6C63FF" />
-                <Text style={{ color: '#8888AA', fontSize: 12, marginTop: 8 }}>Loading your data...</Text>
+                <ActivityIndicator color={colors.accent} />
+                <Text style={{ color: colors.subtext, fontSize: 12, marginTop: 8 }}>Loading your data...</Text>
               </View>
             ) : (
               <HorizontalBarChart
@@ -268,53 +284,55 @@ export default function DashboardScreen() {
 
           {/* Quick Stats */}
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-            <View style={{ flex: 1, backgroundColor: '#1A1928', borderRadius: 16, padding: 16 }}>
+            <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, padding: 16 }}>
               <TrendingUpIcon />
-              <Text style={{ color: '#8888AA', fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginTop: 8, marginBottom: 4 }}>TOTAL INCOME</Text>
-              <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>
-                ${stats.totalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              <Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginTop: 8, marginBottom: 4 }}>TOTAL INCOME</Text>
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '700' }}>
+                {currencySymbol}{stats.totalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: '#1A1928', borderRadius: 16, padding: 16 }}>
+            <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, padding: 16 }}>
               <TrendingDownIcon />
-              <Text style={{ color: '#8888AA', fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginTop: 8, marginBottom: 4 }}>TOTAL EXPENSES</Text>
-              <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>
-                ${stats.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              <Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginTop: 8, marginBottom: 4 }}>TOTAL EXPENSES</Text>
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '700' }}>
+                {currencySymbol}{stats.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </Text>
             </View>
           </View>
 
           {/* Daily Budget Ring */}
-          <View style={{ backgroundColor: '#1A1928', borderRadius: 20, padding: 20, marginBottom: 16, alignItems: 'center' }}>
-            <Text style={{ color: '#8888AA', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 20 }}>DAILY BUDGET RING</Text>
+          <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 20, marginBottom: 16, alignItems: 'center' }}>
+            <Text style={{ color: colors.subtext, fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 20 }}>DAILY BUDGET RING</Text>
             <View style={{ alignItems: 'center', marginBottom: 20 }}>
               <View style={{ position: 'relative', alignItems: 'center', justifyContent: 'center' }}>
                 <ProgressRing
-                  percentage={stats.dailyBudget > 0 ? (budgetRing.spent / stats.dailyBudget) * 100 : 0}
+                  percentage={budgetRing.percentage}
                   size={180}
                   strokeWidth={12}
-                  color="#00C9A7"
+                  color={budgetRing.isOverBudget ? '#FF6B6B' : '#00C9A7'}
                 />
                 <View style={{ position: 'absolute', alignItems: 'center' }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '700' }}>
-                    ${budgetRing.remaining.toFixed(2)}
+                  <Text style={{ color: budgetRing.isOverBudget ? '#FF6B6B' : colors.text, fontSize: 32, fontWeight: '700' }}>
+                    {budgetRing.isOverBudget ? '-' : ''}{currencySymbol}{Math.abs(budgetRing.remaining).toFixed(2)}
                   </Text>
-                  <Text style={{ color: '#8888AA', fontSize: 12 }}>REMAINING</Text>
+                  <Text style={{ color: budgetRing.isOverBudget ? '#FF6B6B' : colors.subtext, fontSize: 12, fontWeight: '600' }}>
+                    {budgetRing.isOverBudget ? 'OVER BUDGET' : 'REMAINING'}
+                  </Text>
                 </View>
               </View>
             </View>
             <View style={{ flexDirection: 'row', width: '100%' }}>
               <View style={{ flex: 1, alignItems: 'center' }}>
                 <Text style={{ color: '#FF6B6B', fontSize: 20, fontWeight: '700', marginBottom: 4 }}>
-                  ${budgetRing.spent.toFixed(2)}
+                  {currencySymbol}{budgetRing.spent.toFixed(2)}
                 </Text>
-                <Text style={{ color: '#8888AA', fontSize: 11, fontWeight: '600' }}>SPENT TODAY</Text>
+                <Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>SPENT TODAY</Text>
               </View>
               <View style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700', marginBottom: 4 }}>
+                <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: 4 }}>
                   {stats.daysRemaining}
                 </Text>
-                <Text style={{ color: '#8888AA', fontSize: 11, fontWeight: '600' }}>DAYS REMAINING</Text>
+                <Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>DAYS REMAINING</Text>
               </View>
             </View>
           </View>
@@ -322,41 +340,35 @@ export default function DashboardScreen() {
           {/* Recent Activity */}
           <View style={{ marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>Recent Activity</Text>
+              <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>Recent Activity</Text>
               {hasTransactions && (
                 <Pressable>
-                  <Text style={{ color: '#6C63FF', fontSize: 13, fontWeight: '600' }}>VIEW ALL</Text>
+                  <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '600' }}>VIEW ALL</Text>
                 </Pressable>
               )}
             </View>
 
             {hasTransactions ? (
-              recentTxns.map((t, index) => (
-                <View
+              recentTxns.map((t) => (
+                <SwipeableTransactionItem
                   key={t.id}
-                  style={{
-                    backgroundColor: '#1A1928', borderRadius: 16, padding: 16,
-                    marginBottom: index !== recentTxns.length - 1 ? 8 : 0,
-                    flexDirection: 'row', alignItems: 'center',
+                  transaction={t}
+                  isDark={isDark}
+                  onEdit={(transaction) => {
+                    setEditTransaction(transaction)
+                    setShowTransactionModal(true)
                   }}
-                >
-                  <CategoryIcon category={t.category} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '600', marginBottom: 2 }}>
-                      {t.description}
-                    </Text>
-                    <Text style={{ color: '#8888AA', fontSize: 12 }}>
-                      {t.category.toUpperCase()} • {formatTransactionDate(t.date)}
-                    </Text>
-                  </View>
-                  <Text style={{ color: t.type === 'income' ? '#00C9A7' : '#FF6B6B', fontSize: 16, fontWeight: '700' }}>
-                    {t.type === 'income' ? '+' : '-'}${t.amount.toFixed(2)}
-                  </Text>
-                </View>
+                  onDelete={(transaction) => {
+                    deleteTransaction(transaction.id)
+                  }}
+                />
               ))
             ) : (
-              <View style={{ backgroundColor: '#1A1928', borderRadius: 20, overflow: 'hidden' }}>
-                <EmptyActivity onAdd={() => setShowAddSheet(true)} />
+              <View style={{ backgroundColor: colors.card, borderRadius: 20, overflow: 'hidden' }}>
+                <EmptyActivity onAdd={() => {
+                    setEditTransaction(null)
+                    setShowTransactionModal(true)
+                  }} />
               </View>
             )}
           </View>
@@ -372,7 +384,7 @@ export default function DashboardScreen() {
         >
           <View style={{
             position: 'absolute', top: 200, right: 24,
-            backgroundColor: '#1A1928', borderRadius: 16, padding: 8, minWidth: 180,
+            backgroundColor: colors.card, borderRadius: 16, padding: 8, minWidth: 180,
             shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
           }}>
@@ -386,26 +398,34 @@ export default function DashboardScreen() {
                 style={{
                   flexDirection: 'row', alignItems: 'center', padding: 12,
                   borderBottomWidth: index !== 2 ? 1 : 0,
-                  borderBottomColor: '#2E2D45',
+                  borderBottomColor: colors.divider,
                 }}
                 onPress={() => setShowChartOptions(false)}
               >
                 <Text style={{ fontSize: 18, marginRight: 12 }}>{option.icon}</Text>
-                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>{option.label}</Text>
+                <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>{option.label}</Text>
               </Pressable>
             ))}
           </View>
         </Pressable>
       )}
 
-      {/* Add Transaction Sheet */}
-      <AddTransactionSheet
-        visible={showAddSheet}
-        onClose={() => setShowAddSheet(false)}
+      {/* Draggable FAB */}
+      <DraggableFAB onPress={() => {
+        setEditTransaction(null)
+        setShowTransactionModal(true)
+      }} />
+
+      {/* Add/Edit Transaction Modal */}
+      <AddTransactionModal
+        visible={showTransactionModal}
+        onClose={() => {
+          setShowTransactionModal(false)
+          setEditTransaction(null)
+        }}
+        editTransaction={editTransaction as any || undefined}
       />
 
-      {/* Draggable FAB */}
-      <DraggableFAB onPress={() => setShowAddSheet(true)} />
     </SafeAreaView>
   )
 }

@@ -14,7 +14,7 @@ function ProgressDots({ total, current }: { total: number; current: number }) {
         <Pressable
           key={index}
           onPress={() => {
-            if (index === 0) router.push('/(onboarding)/')
+            if (index === 0) router.push('/(onboarding)')
             if (index === 1) router.push('/(onboarding)/income')
             if (index === 2) router.push('/(onboarding)/notifications')
           }}
@@ -217,7 +217,7 @@ export default function OnboardingNotificationsScreen() {
               body: "Don't forget to log today's expenses!",
             },
             trigger: {
-              type: 'daily',
+              type: 'daily' as any,
               hour: 21,
               minute: 0,
             },

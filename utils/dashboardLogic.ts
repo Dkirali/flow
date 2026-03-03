@@ -19,6 +19,10 @@ export interface Transaction {
   description: string
   date: Date
   type: 'income' | 'expense'
+  isMandatory?: boolean
+  isLeisure?: boolean
+  isRecurring?: boolean
+  recurringFrequency?: 'monthly' | 'weekly' | 'biweekly'
 }
 
 export interface ChartDataPoint {
@@ -184,10 +188,9 @@ export function calculateDashboardStats(
 
   const daysInMonth = endOfMonth(now).getDate()
 
-  // When no income transactions exist, fall back to the declared monthly income
-  // scaled to the selected period so the dashboard always shows meaningful data
-  const declaredPeriodIncome = (() => {
-    if (transactionIncome > 0) return transactionIncome
+  // Declared income (from settings) scaled to the selected period — always included
+  // as the baseline. Transaction income (e.g. bonus, freelance) is added on top.
+  const scaledSettingsIncome = (() => {
     switch (period) {
       case 'day': return monthlyIncome / daysInMonth
       case 'month': return monthlyIncome
@@ -195,7 +198,7 @@ export function calculateDashboardStats(
     }
   })()
 
-  const totalIncome = declaredPeriodIncome
+  const totalIncome = scaledSettingsIncome + transactionIncome
 
   const totalExpenses = periodTransactions
     .filter(t => t.type === 'expense')
@@ -300,7 +303,7 @@ export function getRecentTransactions(
   limit: number = 5
 ): Transaction[] {
   return transactions
-    .filter(t => t.type === 'expense')
+    .filter(t => t.type === 'expense' || t.type === 'income')
     .sort((a, b) => b.date.getTime() - a.date.getTime())
     .slice(0, limit)
 }
@@ -332,13 +335,15 @@ export function calculateBudgetRing(
   dailyBudget: number,
   spentToday: number
 ) {
-  const spent = Math.min(spentToday, dailyBudget)
-  const remaining = Math.max(0, dailyBudget - spentToday)
-  const percentage = dailyBudget > 0 ? (spent / dailyBudget) * 100 : 0
   const isOverBudget = spentToday > dailyBudget
+  // Allow negative remaining to show overspending
+  const remaining = dailyBudget - spentToday
+  // Calculate percentage - cap at 100% for ring display when over budget
+  const rawPercentage = dailyBudget > 0 ? (spentToday / dailyBudget) * 100 : 0
+  const percentage = isOverBudget ? 100 : Math.min(rawPercentage, 100)
 
   return {
-    percentage: Math.min(percentage, 100),
+    percentage,
     remaining,
     spent: spentToday,
     isOverBudget,

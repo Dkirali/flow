@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FLŌW Add Entry Modal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#6C63FF",
+                        "bg-modal": "#090912",
+                        "card-dark": "#13121F",
+                        "teal-green": "#00C9A7",
+                        "handle": "#2E2D45",
+                        "accent-purple": "#6C63FF",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"],
+                        "inter": ["Inter"]
+                    },
+                    borderRadius: {
+                        "xl": "1.5rem",
+                        "2xl": "2rem",
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        :root {
+            --teal-glow: rgba(0, 201, 167, 0.4);
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .cursor-blink {
+            border-bottom: 2.5px solid #6C63FF;
+            width: 40px;
+            display: inline-block;
+            margin-left: 2px;
+        }
+        .teal-btn-glow {
+            box-shadow: 0 10px 30px -5px var(--teal-glow);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-bg-modal font-display text-white min-h-screen">
+<div class="flex flex-col h-screen max-w-md mx-auto relative overflow-hidden">
+<div class="pt-3 pb-6 px-6 flex flex-col items-center">
+<div class="w-10 h-1.5 bg-handle rounded-full mb-6"></div>
+<div class="w-full flex justify-between items-center">
+<div class="w-10"></div> 
+<h1 class="text-lg font-bold">Add Transaction</h1>
+<button class="w-10 h-10 flex items-center justify-end">
+<span class="material-symbols-outlined text-slate-400">close</span>
+</button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-6 pb-32 no-scrollbar">
+<div class="bg-[#1A1928] p-1 rounded-full flex mb-8">
+<button class="flex-1 py-3 rounded-full bg-teal-green text-bg-modal font-bold text-sm">Income</button>
+<button class="flex-1 py-3 rounded-full text-slate-400 font-bold text-sm">Expense</button>
+</div>
+<div class="bg-card-dark rounded-2xl p-6 mb-8 border border-white/5 flex flex-col items-center">
+<div class="bg-[#1A1928] px-3 py-1 rounded-full flex items-center gap-1.5 mb-4 border border-white/5">
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">USD</span>
+<span class="material-symbols-outlined text-xs text-slate-500">expand_more</span>
+</div>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-bold text-slate-500">$</span>
+<span class="text-5xl font-extrabold tracking-tight">2,450.00</span>
+<div class="cursor-blink mb-1"></div>
+</div>
+</div>
+<div class="flex gap-3 mb-10">
+<div class="bg-card-dark rounded-full px-4 py-2.5 flex items-center gap-2 border border-white/5">
+<span class="material-symbols-outlined text-sm text-teal-green">calendar_today</span>
+<span class="text-sm font-semibold">Today</span>
+</div>
+<div class="bg-card-dark rounded-full px-4 py-2.5 flex items-center gap-2 border border-white/5">
+<span class="material-symbols-outlined text-sm text-teal-green">schedule</span>
+<span class="text-sm font-semibold">14:30</span>
+</div>
+</div>
+<div class="mb-10">
+<label class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4 block">Category</label>
+<div class="bg-card-dark rounded-t-2xl px-5 py-4 flex items-center justify-between border-x border-t border-white/10">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-accent-purple/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-accent-purple">laptop_mac</span>
+</div>
+<span class="font-bold">Freelance Projects</span>
+</div>
+<span class="material-symbols-outlined text-slate-400 rotate-180">expand_more</span>
+</div>
+<div class="bg-card-dark rounded-b-2xl border-x border-b border-white/10 overflow-hidden divide-y divide-white/5">
+<div class="px-5 py-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-400 text-xl">payments</span>
+</div>
+<span class="text-slate-400 font-medium">Salary</span>
+</div>
+</div>
+<div class="px-5 py-4 flex items-center justify-between bg-teal-green/5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-accent-purple/20 flex items-center justify-center border border-accent-purple/30">
+<span class="material-symbols-outlined text-accent-purple text-xl">laptop_mac</span>
+</div>
+<span class="text-teal-green font-bold">Freelance</span>
+</div>
+<span class="material-symbols-outlined text-teal-green">check_circle</span>
+</div>
+<div class="px-5 py-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-400 text-xl">storefront</span>
+</div>
+<span class="text-slate-400 font-medium">Business</span>
+</div>
+</div>
+</div>
+</div>
+<div class="mb-10">
+<div class="flex items-center gap-3 bg-card-dark rounded-2xl px-5 py-4 border border-white/5">
+<span class="material-symbols-outlined text-slate-500">notes</span>
+<input class="bg-transparent border-none p-0 focus:ring-0 text-slate-400 text-sm w-full placeholder:text-slate-600" placeholder="Add a description..." type="text"/>
+</div>
+</div>
+<div class="bg-card-dark rounded-2xl p-6 mb-8 border border-white/5">
+<div class="flex justify-between items-center mb-6">
+<span class="font-bold">Recurring Entry</span>
+<div class="w-12 h-6 bg-teal-green rounded-full relative">
+<div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+</div>
+</div>
+<div class="flex gap-2">
+<div class="bg-accent-purple/10 border border-accent-purple/30 rounded-full px-4 py-2">
+<span class="text-xs font-bold text-accent-purple">Every Month</span>
+</div>
+<div class="bg-[#1A1928] border border-white/5 rounded-full px-4 py-2">
+<span class="text-xs font-bold text-slate-400">On the 1st</span>
+</div>
+</div>
+</div>
+</div>
+<div class="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-bg-modal via-bg-modal to-transparent">
+<button class="w-full py-5 bg-teal-green text-bg-modal rounded-2xl font-extrabold text-base flex items-center justify-center gap-2 teal-btn-glow active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined font-bold">check</span>
+                Add Income
+            </button>
+</div>
+</div>
+
+</body></html>
