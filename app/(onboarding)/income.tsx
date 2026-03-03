@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path, Circle, Rect } from 'react-native-svg'
+import { format } from 'date-fns'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useBudgetStore } from '@/stores/budgetStore'
 import { useTransactionStore } from '@/stores/transactionStore'
@@ -263,7 +264,7 @@ export default function OnboardingIncomeScreen() {
   const [customDay, setCustomDay] = useState<number | null>(null)
 
   const { currency, setCurrency } = useSettingsStore()
-  const { addIncomeSource, recalculate } = useBudgetStore()
+  const { recalculate } = useBudgetStore()
   const { addTransaction } = useTransactionStore()
   const currentCurrency = getCurrencyByCode(currency)
 
@@ -297,33 +298,26 @@ export default function OnboardingIncomeScreen() {
 
       setIncome(numericAmount, paydayDayValue, frequency)
       
-      // Add income source for budget calculations
-      await addIncomeSource({
-        name: 'Monthly Income',
-        amount: numericAmount,
-        category: 'salary',
-        isRecurring,
-        recurringFrequency: 'monthly',
-        recurringDay: paydayDayValue,
-        currencyCode: currency,
-      })
-      
-      // Also add as a transaction so it shows in dashboard
-      const now = new Date()
+      // Add as a transaction so it shows in dashboard
       await addTransaction({
         amount: numericAmount,
         type: 'income',
         category: 'salary',
         note: 'Monthly Income',
-        date: now.toISOString().split('T')[0],
-        time: now.toTimeString().slice(0, 5),
+        date: format(new Date(), 'yyyy-MM-dd'),
+        time: format(new Date(), 'HH:mm'),
+        isMandatory: false,
+        isLeisure: false,
+        isRecurring: isRecurring,
+        recurringFrequency: 'monthly',
+        recurringDay: paydayDayValue,
         currencyCode: currency,
       })
       
       recalculate()
       router.push('/(onboarding)/notifications')
     } catch (err) {
-      setError('Failed to save. Please try again.')
+      setError('Failed to save. Try again.')
     } finally {
       setIsLoading(false)
     }

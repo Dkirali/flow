@@ -56,7 +56,6 @@ export function useExchangeRates() {
 
       setRates(data.rates)
     } catch (err) {
-      console.error('Exchange rate error:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
       
       // Fallback to cached rates even if expired

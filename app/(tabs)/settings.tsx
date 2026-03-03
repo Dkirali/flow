@@ -22,6 +22,7 @@ import { useUserStore } from '@/stores/userStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useBudgetStore } from '@/stores/budgetStore'
 import { useTransactionStore } from '@/stores/transactionStore'
+import { useExchangeRates } from '@/hooks/useExchangeRates'
 import { currencies } from '@/constants/currencies'
 
 const ACCENT_COLORS = ['#6C63FF', '#00C9A7', '#FF6B6B', '#FFD93D', '#4CC9F0'] as const
@@ -868,6 +869,161 @@ function CurrencyPickerModal({
   )
 }
 
+// ─── Manage Mandatory Expenses Modal ──────────────────────────
+
+function ManageMandatoryExpensesModal({
+  visible,
+  onClose,
+}: {
+  visible: boolean
+  onClose: () => void
+}) {
+  const c = useColors()
+  const { mandatoryExpenses, addMandatoryExpense, deleteMandatoryExpense } = useBudgetStore()
+  const { currencySymbol } = useSettingsStore()
+  const [expenseName, setExpenseName] = useState('')
+  const [expenseAmount, setExpenseAmount] = useState('')
+  const [isAdding, setIsAdding] = useState(false)
+
+  const handleAdd = async () => {
+    const parsed = parseFloat(expenseAmount)
+    if (!expenseName.trim() || isNaN(parsed) || parsed <= 0) return
+    setIsAdding(true)
+    try {
+      await addMandatoryExpense({
+        name: expenseName.trim(),
+        amount: parsed,
+        category: 'bills',
+        isRecurring: true,
+      })
+      setExpenseName('')
+      setExpenseAmount('')
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
+  const handleDelete = (id: string) => {
+    Alert.alert('Delete Expense', 'Remove this mandatory expense?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteMandatoryExpense(id) },
+    ])
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <Pressable
+          style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' }}
+          onPress={onClose}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <View
+              style={{
+                backgroundColor: c.card,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                padding: 24,
+              }}
+            >
+              {/* Header */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                <Text style={{ flex: 1, color: c.text, fontSize: 20, fontWeight: '700' }}>Mandatory Expenses</Text>
+                <Pressable onPress={onClose} hitSlop={12}>
+                  <X size={22} color={c.subtext} />
+                </Pressable>
+              </View>
+
+              {/* Existing list */}
+              {mandatoryExpenses.length === 0 ? (
+                <Text style={{ color: c.subtext, fontSize: 14, textAlign: 'center', paddingVertical: 8 }}>
+                  No mandatory expenses yet
+                </Text>
+              ) : (
+                <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+                  {mandatoryExpenses.map((expense, idx) => (
+                    <View
+                      key={expense.id}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 12,
+                        borderBottomWidth: idx < mandatoryExpenses.length - 1 ? StyleSheet.hairlineWidth : 0,
+                        borderBottomColor: c.divider,
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: c.text, fontSize: 15, fontWeight: '600' }}>{expense.name}</Text>
+                        <Text style={{ color: c.subtext, fontSize: 13 }}>
+                          {currencySymbol}{expense.amount.toLocaleString()} / month
+                        </Text>
+                      </View>
+                      <Pressable onPress={() => handleDelete(expense.id)} hitSlop={12}>
+                        <Trash2 size={18} color="#FF6B6B" />
+                      </Pressable>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* Add new */}
+              <View style={{ marginTop: 20 }}>
+                <Text style={{ color: c.subtext, fontSize: 12, fontWeight: '600', letterSpacing: 0.5, marginBottom: 10 }}>
+                  ADD NEW
+                </Text>
+                <TextInput
+                  value={expenseName}
+                  onChangeText={setExpenseName}
+                  placeholder="Name (e.g. Rent)"
+                  placeholderTextColor={c.subtext}
+                  style={{
+                    backgroundColor: c.inputBg,
+                    borderRadius: 12,
+                    padding: 14,
+                    color: c.text,
+                    fontSize: 15,
+                    marginBottom: 10,
+                  }}
+                />
+                <TextInput
+                  value={expenseAmount}
+                  onChangeText={setExpenseAmount}
+                  placeholder="Amount"
+                  placeholderTextColor={c.subtext}
+                  keyboardType="decimal-pad"
+                  style={{
+                    backgroundColor: c.inputBg,
+                    borderRadius: 12,
+                    padding: 14,
+                    color: c.text,
+                    fontSize: 15,
+                    marginBottom: 16,
+                  }}
+                />
+                <Pressable
+                  onPress={handleAdd}
+                  disabled={isAdding}
+                  style={{
+                    backgroundColor: c.accent,
+                    borderRadius: 14,
+                    padding: 16,
+                    alignItems: 'center',
+                    opacity: isAdding ? 0.7 : 1,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
+                    {isAdding ? 'Adding...' : 'Add Expense'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
+    </Modal>
+  )
+}
+
 // ─── Main Screen ──────────────────────────────────────────────
 
 export default function SettingsScreen() {
@@ -893,14 +1049,16 @@ export default function SettingsScreen() {
     setDataScopeMonths,
     setIncome,
   } = useSettingsStore()
-  const { mandatoryExpenses } = useBudgetStore()
-  const { clearAll } = useTransactionStore()
+  const { mandatoryExpenses, updateMandatoryExpense } = useBudgetStore()
+  const { clearAll, convertAllCurrencies } = useTransactionStore()
+  const { rates } = useExchangeRates()
   const systemScheme = useColorScheme()
 
   const [editProfileVisible, setEditProfileVisible] = useState(false)
   const [editIncomeVisible, setEditIncomeVisible] = useState(false)
   const [editPaydayVisible, setEditPaydayVisible] = useState(false)
   const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false)
+  const [mandatoryExpensesVisible, setMandatoryExpensesVisible] = useState(false)
 
   // Resolve live theme colors — re-computed whenever theme or accentColor changes
   const effectiveTheme = theme === 'system' ? (systemScheme ?? 'dark') : theme
@@ -909,6 +1067,26 @@ export default function SettingsScreen() {
 
   const mandatoryTotal = mandatoryExpenses.reduce((sum, e) => sum + e.amount, 0)
   const initial = name ? name.charAt(0).toUpperCase() : '?'
+
+  const handleCurrencySelect = useCallback(async (newCode: string) => {
+    setCurrencyPickerVisible(false)
+    if (newCode === currency || !rates) {
+      setCurrency(newCode)
+      return
+    }
+    const rateTo = rates[newCode] ?? 1
+    // Convert all transactions to new currency
+    await convertAllCurrencies(newCode, rates)
+    // Convert mandatory expense templates (stored without currencyCode, assume current base)
+    for (const expense of mandatoryExpenses) {
+      const rateFrom = rates[currency] ?? 1
+      const newAmount = parseFloat((expense.amount * (rateTo / rateFrom)).toFixed(2))
+      await updateMandatoryExpense(expense.id, { amount: newAmount })
+    }
+    // Convert the manually-set monthly income (in case it was set independently of transactions)
+    setIncome(parseFloat((monthlyIncome * (rateTo / (rates[currency] ?? 1))).toFixed(2)), paydayDay, paydayFrequency)
+    setCurrency(newCode)
+  }, [currency, rates, mandatoryExpenses, monthlyIncome, paydayDay, paydayFrequency])
 
   const handleClearTransactions = () => {
     Alert.alert(
@@ -1044,12 +1222,7 @@ export default function SettingsScreen() {
             <SettingsRow
               label="Mandatory Expenses"
               value={`${currencySymbol}${mandatoryTotal.toLocaleString()}`}
-              onPress={() =>
-                Alert.alert(
-                  'Mandatory Expenses',
-                  'Manage your mandatory expenses here (coming soon).'
-                )
-              }
+              onPress={() => setMandatoryExpensesVisible(true)}
               isLast
             />
           </SettingsCard>
@@ -1203,7 +1376,11 @@ export default function SettingsScreen() {
           visible={currencyPickerVisible}
           selectedCode={currency}
           onClose={() => setCurrencyPickerVisible(false)}
-          onSelect={setCurrency}
+          onSelect={handleCurrencySelect}
+        />
+        <ManageMandatoryExpensesModal
+          visible={mandatoryExpensesVisible}
+          onClose={() => setMandatoryExpensesVisible(false)}
         />
       </SafeAreaView>
     </ThemeCtx.Provider>

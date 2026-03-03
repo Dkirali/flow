@@ -18,6 +18,7 @@ interface TransactionStore {
   addTransaction: (transaction: NewTransaction) => Promise<void>
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>
   deleteTransaction: (id: string) => Promise<void>
+  convertAllCurrencies: (newCurrency: string, rates: Record<string, number>) => Promise<void>
   getByDate: (date: string) => Transaction[]
   getByMonth: (year: number, month: number) => Transaction[]
   getTodayExpenses: () => Transaction[]
@@ -57,6 +58,26 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
     try {
       await db.insert(transactions).values(transactionToInsert)
       await get().fetchAll()
+
+      // Sync monthly income setting whenever an income transaction is added
+      if (newTransaction.type === 'income') {
+        const incomeTotal = get().transactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0)
+        const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+        useSettingsStore.getState().setIncome(incomeTotal, paydayDay || 1, paydayFrequency || 'monthly')
+      }
+
+      // Sync mandatory expenses whenever a mandatory expense transaction is added
+      if (newTransaction.type === 'expense' && (newTransaction.isMandatory ?? false)) {
+        const name = newTransaction.note ?? newTransaction.category
+        await useBudgetStore.getState().addMandatoryExpense({
+          name,
+          amount: newTransaction.amount,
+          category: newTransaction.category,
+          isRecurring: newTransaction.isRecurring ?? true,
+        })
+      }
 
       // Recalculate budget after adding transaction
       useBudgetStore.getState().recalculate()
@@ -99,20 +120,69 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
     try {
       await db.update(transactions).set(updates).where(eq(transactions.id, id))
       await get().fetchAll()
+
+      // Sync monthly income if an income transaction was updated
+      const updated = get().transactions.find(t => t.id === id)
+      if (updated?.type === 'income') {
+        const incomeTotal = get().transactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0)
+      const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+        useSettingsStore.getState().setIncome(incomeTotal, paydayDay || 1, paydayFrequency || 'monthly')
+      }
     } catch (error) {
-      
+
       throw error
     }
   },
 
   deleteTransaction: async (id) => {
     try {
+      const txn = get().transactions.find(t => t.id === id)
       await db.delete(transactions).where(eq(transactions.id, id))
       await get().fetchAll()
+
+      // Sync monthly income setting whenever an income transaction is deleted
+      if (txn?.type === 'income') {
+        const incomeTotal = get().transactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0)
+      const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+        useSettingsStore.getState().setIncome(incomeTotal, paydayDay || 1, paydayFrequency || 'monthly')
+      }
+
+      // Remove from mandatory expenses when a mandatory expense transaction is deleted
+      if (txn?.isMandatory && txn?.type === 'expense') {
+        const name = txn.note ?? txn.category
+        const { mandatoryExpenses, deleteMandatoryExpense } = useBudgetStore.getState()
+        const match = mandatoryExpenses.find(e => e.name === name && e.amount === txn.amount)
+        if (match) await deleteMandatoryExpense(match.id)
+      }
     } catch (error) {
-      
+
       throw error
     }
+  },
+
+  convertAllCurrencies: async (newCurrency, rates) => {
+    const allTxns = get().transactions
+    for (const txn of allTxns) {
+      const fromCurrency = txn.currencyCode ?? 'USD'
+      if (fromCurrency === newCurrency) continue
+      const rateFrom = rates[fromCurrency] ?? 1
+      const rateTo = rates[newCurrency] ?? 1
+      const newAmount = parseFloat((txn.amount * (rateTo / rateFrom)).toFixed(2))
+      await db.update(transactions)
+        .set({ amount: newAmount, currencyCode: newCurrency })
+        .where(eq(transactions.id, txn.id))
+    }
+    await get().fetchAll()
+    // Re-sync monthly income after conversion
+    const incomeTotal = get().transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0)
+    const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+    useSettingsStore.getState().setIncome(incomeTotal, paydayDay || 1, paydayFrequency || 'monthly')
   },
 
   getByDate: (date) => {
@@ -134,6 +204,8 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
     try {
       await db.delete(transactions)
       set({ transactions: [] })
+      const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+      useSettingsStore.getState().setIncome(0, paydayDay || 1, paydayFrequency || 'monthly')
       useBudgetStore.getState().recalculate()
     } catch (error) {
       throw error

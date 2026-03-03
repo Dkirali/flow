@@ -6,6 +6,7 @@ import { useUserStore } from '@/stores/userStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useBudgetStore } from '@/stores/budgetStore'
 import { useTransactionStore } from '@/stores/transactionStore'
+import { useExchangeRates } from '@/hooks/useExchangeRates'
 import {
   aggregateTransactionsByPeriod,
   calculateDashboardStats,
@@ -145,8 +146,9 @@ export default function DashboardScreen() {
 
   const { name } = useUserStore()
   const { monthlyIncome: settingsIncome, theme, accentColor, currencySymbol } = useSettingsStore()
-  const { incomeSources } = useBudgetStore()
+  const { incomeSources, mandatoryExpenses } = useBudgetStore()
   const { transactions: storeTransactions, deleteTransaction, updateTransaction } = useTransactionStore()
+  const { convertToBase } = useExchangeRates()
   const systemScheme = useColorScheme()
 
   const effectiveTheme = theme === 'system' ? (systemScheme ?? 'dark') : theme
@@ -195,14 +197,18 @@ export default function DashboardScreen() {
       description: t.note ?? t.category,
       date: new Date(`${t.date}T${t.time}:00`),
       type: t.type,
+      currencyCode: t.currencyCode ?? 'USD',
+      isMandatory: t.isMandatory,
+      isLeisure: t.isLeisure,
+      isRecurring: t.isRecurring,
     })),
     [storeTransactions]
   )
 
   const hasTransactions = transactions.length > 0
 
-  const chartData       = useMemo(() => aggregateTransactionsByPeriod(transactions, selectedPeriod), [transactions, selectedPeriod])
-  const stats           = useMemo(() => calculateDashboardStats(transactions, selectedPeriod, monthlyIncome), [transactions, selectedPeriod, monthlyIncome])
+  const chartData       = useMemo(() => aggregateTransactionsByPeriod(transactions, selectedPeriod, convertToBase), [transactions, selectedPeriod, convertToBase])
+  const stats           = useMemo(() => calculateDashboardStats(transactions, selectedPeriod, monthlyIncome, convertToBase, mandatoryExpenses), [transactions, selectedPeriod, monthlyIncome, convertToBase, mandatoryExpenses])
   const goalProgress    = useMemo(() => calculateGoalProgress(transactions, monthlyIncome, 20), [transactions, monthlyIncome])
   const recentTxns      = useMemo(() => getRecentTransactions(transactions, 5), [transactions])
   const budgetRing      = useMemo(() => calculateBudgetRing(stats.dailyBudget, stats.spentToday), [stats])
@@ -278,6 +284,7 @@ export default function DashboardScreen() {
                 data={chartData}
                 period={selectedPeriod}
                 title={getPeriodLabel(selectedPeriod)}
+                isDark={isDark}
               />
             )}
           </View>

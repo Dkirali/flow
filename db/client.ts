@@ -46,6 +46,7 @@ export async function runMigrations() {
         amount REAL NOT NULL,
         category TEXT NOT NULL,
         is_recurring INTEGER DEFAULT 1,
+        recurring_frequency TEXT,
         recurring_day INTEGER,
         created_at TEXT NOT NULL
       );
@@ -55,6 +56,18 @@ export async function runMigrations() {
         value TEXT NOT NULL
       );
     `)
+
+    // Additive column migrations — ALTER TABLE throws if column already exists,
+    // so each is wrapped individually. These are safe to re-run on every launch.
+    const alterStatements = [
+      `ALTER TABLE mandatory_expenses ADD COLUMN recurring_frequency TEXT`,
+      `ALTER TABLE mandatory_expenses ADD COLUMN recurring_day INTEGER`,
+      `ALTER TABLE transactions ADD COLUMN currency_code TEXT DEFAULT 'USD'`,
+      `ALTER TABLE income_sources ADD COLUMN currency_code TEXT DEFAULT 'USD'`,
+    ]
+    for (const sql of alterStatements) {
+      try { expoDb.execSync(sql) } catch { /* column already exists */ }
+    }
   } catch (error) {
     throw error
   }

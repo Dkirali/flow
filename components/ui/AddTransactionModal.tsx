@@ -16,7 +16,9 @@ import DateTimePicker from '@react-native-community/datetimepicker'
 import * as Haptics from 'expo-haptics'
 import { useTransactionStore } from '@/stores/transactionStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useBudgetStore } from '@/stores/budgetStore'
 import { useExchangeRates } from '@/hooks/useExchangeRates'
+
 import { getCategoriesByType, type Category } from '@/constants/categories'
 import { getCurrencyByCode } from '@/constants/currencies'
 import { CurrencySelector } from '@/components/ui/CurrencySelector'
@@ -93,6 +95,7 @@ export function AddTransactionModal({
   
   const { theme, accentColor, currency: baseCurrency } = useSettingsStore()
   const { addTransaction, updateTransaction } = useTransactionStore()
+  const { recalculate } = useBudgetStore()
   const { rates, convertToBase } = useExchangeRates()
   
   const isDark = theme === 'system' ? systemScheme === 'dark' : theme === 'dark'
@@ -257,14 +260,15 @@ export function AddTransactionModal({
         await addTransaction(transactionData)
       }
       
+      // Recalculate budget
+      recalculate()
+      
       // Success haptic
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       
       // Close modal
       onClose()
     } catch (error) {
-      // Silent fail - no error message shown
-      console.error('Transaction save error:', error)
     }
   }
   

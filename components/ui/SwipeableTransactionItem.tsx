@@ -3,7 +3,7 @@ import { View, Text, Pressable, Animated, StyleSheet } from 'react-native'
 import { Swipeable } from 'react-native-gesture-handler'
 import { type Transaction as DashboardTransaction } from '@/utils/dashboardLogic'
 import { formatTransactionDate } from '@/utils/dashboardLogic'
-import { Pencil, Trash2 } from 'lucide-react-native'
+import { Pencil, Trash2, Repeat } from 'lucide-react-native'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { getCurrencyByCode } from '@/constants/currencies'
 
@@ -112,17 +112,58 @@ export function SwipeableTransactionItem({
           <Text style={{ color: isDark ? '#FFFFFF' : '#1A1A2E', fontSize: 15, fontWeight: '600', marginBottom: 2 }}>
             {transaction.description || transaction.category}
           </Text>
-          <Text style={{ color: isDark ? '#8888AA' : '#6B7280', fontSize: 12 }}>
-            {transaction.category.toUpperCase()} • {formatTransactionDate(transaction.date)}
-          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+            <Text style={{ color: isDark ? '#8888AA' : '#6B7280', fontSize: 12 }}>
+              {transaction.category.toUpperCase()} • {formatTransactionDate(transaction.date)}
+            </Text>
+            {transaction.isMandatory && (
+              <View style={{
+                backgroundColor: 'rgba(108,99,255,0.15)',
+                borderRadius: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+              }}>
+                <Text style={{
+                  color: '#6C63FF',
+                  fontSize: 10,
+                  fontWeight: '700',
+                  letterSpacing: 0.5,
+                }}>
+                  MANDATORY
+                </Text>
+              </View>
+            )}
+            {transaction.isLeisure && (
+              <View style={{
+                backgroundColor: 'rgba(0,201,167,0.15)',
+                borderRadius: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+              }}>
+                <Text style={{
+                  color: '#00C9A7',
+                  fontSize: 10,
+                  fontWeight: '700',
+                  letterSpacing: 0.5,
+                }}>
+                  LEISURE
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
-        <Text style={{
-          color: transaction.type === 'income' ? '#00C9A7' : '#FF6B6B',
-          fontSize: 16,
-          fontWeight: '700',
-        }}>
-          {transaction.type === 'income' ? '+' : '-'}{currencySymbol}{transaction.amount.toFixed(2)}
-        </Text>
+        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+          <Text style={{
+            color: transaction.type === 'income' ? '#00C9A7' : '#FF6B6B',
+            fontSize: 16,
+            fontWeight: '700',
+          }}>
+            {transaction.type === 'income' ? '+' : '-'}{currencySymbol}{transaction.amount.toFixed(2)}
+          </Text>
+          {transaction.isRecurring && (
+            <Repeat size={13} color="#FF9F43" />
+          )}
+        </View>
       </View>
     </Swipeable>
   )
