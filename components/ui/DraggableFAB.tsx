@@ -79,12 +79,9 @@ export default function DraggableFAB({ onPress }: DraggableFABProps) {
           ) {
             translateX.value = x
             translateY.value = y
-          } else {
-            console.log('Invalid saved position, using defaults:', { x, y })
           }
         }
-      } catch (error) {
-        console.log('FAB load error:', error)
+      } catch {
         // Continue with defaults, don't crash
       } finally {
         if (isMounted.current) {
@@ -101,7 +98,6 @@ export default function DraggableFAB({ onPress }: DraggableFABProps) {
     try {
       // Validate before saving
       if (typeof x !== 'number' || typeof y !== 'number' || isNaN(x) || isNaN(y)) {
-        console.log('Invalid position, not saving:', { x, y })
         return
       }
       
@@ -110,8 +106,7 @@ export default function DraggableFAB({ onPress }: DraggableFABProps) {
       const safeY = Math.max(EDGE_PADDING + 100, Math.min(SCREEN_HEIGHT - FAB_SIZE - BOTTOM_TAB_HEIGHT - EDGE_PADDING, y))
       
       await AsyncStorage.setItem('fab_position', JSON.stringify({ x: safeX, y: safeY }))
-    } catch (error) {
-      console.log('FAB save error:', error)
+    } catch {
       // Don't crash, just don't save
     }
   }, [])
@@ -120,7 +115,6 @@ export default function DraggableFAB({ onPress }: DraggableFABProps) {
   const snapToEdge = useCallback((x: number, y: number) => {
     // Ensure x and y are valid numbers
     if (typeof x !== 'number' || typeof y !== 'number' || isNaN(x) || isNaN(y)) {
-      console.log('Invalid position for snap, using defaults')
       return { x: defaultX, y: defaultY }
     }
 
@@ -171,8 +165,7 @@ export default function DraggableFAB({ onPress }: DraggableFABProps) {
 
         // Save safely
         runOnJS(savePosition)(snapped.x, snapped.y)
-      } catch (error) {
-        console.log('FAB snap error:', error)
+      } catch {
       }
       
       runOnJS(setIsPressed)(false)

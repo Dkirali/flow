@@ -4,8 +4,8 @@ import { streamText } from 'ai'
 export async function POST(request: Request) {
   const { messages, spendingContext } = await request.json()
 
-  const result = streamText({
-    model: openai('gpt-4o-mini'),
+  const result = await streamText({
+    model: openai('gpt-4o-mini') as any,
     system: `You are FLŌW, a friendly AI financial assistant built into a budget tracking app.
     
     The user's financial context (anonymized):
@@ -21,5 +21,5 @@ export async function POST(request: Request) {
     maxTokens: 500,
   })
 
-  return result.toDataStreamResponse()
+  return (result as any).toDataStreamResponse()
 }

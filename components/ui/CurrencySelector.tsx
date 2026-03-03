@@ -65,7 +65,6 @@ export function CurrencySelector({
               placeholderTextColor="#4A4A6A"
               value={searchQuery}
               onChangeText={setSearchQuery}
-              autoFocus
             />
           </View>
         </View>
@@ -96,7 +95,6 @@ export function CurrencySelector({
               )}
             </Pressable>
           )}
-          estimatedItemSize={56}
           contentContainerStyle={{ paddingBottom: 40 }}
         />
       </View>

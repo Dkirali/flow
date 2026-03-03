@@ -48,7 +48,7 @@ function ProgressDots({ total, current }: { total: number; current: number }) {
           key={index}
           onPress={() => {
             if (index === 0) 
-              router.push('/(onboarding)/')
+              router.push('/(onboarding)')
             if (index === 1) 
               router.push('/(onboarding)/income')
             if (index === 2) 

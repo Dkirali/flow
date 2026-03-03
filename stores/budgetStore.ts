@@ -3,16 +3,19 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { generateId } from '@/utils/generateId'
 import { db } from '@/db/client'
-import { incomeSources, mandatoryExpenses } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { incomeSources, mandatoryExpenses, transactions } from '@/db/schema'
+import { eq, and, like } from 'drizzle-orm'
 import { calculateDailyBudget } from '@/utils/budgetCalculator'
+import { format, getDaysInMonth } from 'date-fns'
 import type { IncomeSource, NewIncomeSource, MandatoryExpense, NewMandatoryExpense } from '@/types/transaction'
 
 interface BudgetStore {
   incomeSources: IncomeSource[]
   mandatoryExpenses: MandatoryExpense[]
   dailyBudget: number
-  recalculate: () => void
+  monthlyIncome: number
+  totalMandatory: number
+  recalculate: () => Promise<void>
   fetchIncomeSources: () => Promise<void>
   fetchMandatoryExpenses: () => Promise<void>
   addIncomeSource: (source: NewIncomeSource) => Promise<void>
@@ -29,16 +32,49 @@ export const useBudgetStore = create<BudgetStore>()(
       incomeSources: [],
       mandatoryExpenses: [],
       dailyBudget: 0,
+      monthlyIncome: 0,
+      totalMandatory: 0,
 
-      recalculate: () => {
-        const monthlyIncome = get().incomeSources.reduce(
-          (sum, source) => sum + source.amount, 0
-        )
-        const dailyBudget = calculateDailyBudget(
-          monthlyIncome,
-          get().mandatoryExpenses
-        )
-        set({ dailyBudget })
+      recalculate: async () => {
+        try {
+          const now = new Date()
+          const currentMonth = format(now, 'yyyy-MM')
+          const daysInMonth = getDaysInMonth(now)
+
+          // Get all income transactions for current month
+          const allTransactions = await db
+            .select()
+            .from(transactions)
+            .where(
+              and(
+                eq(transactions.type, 'income'),
+                like(transactions.date, `${currentMonth}%`)
+              )
+            )
+
+          const monthlyIncome = allTransactions
+            .reduce((sum, t) => sum + t.amount, 0)
+
+          // Get all mandatory expenses
+          const mandatory = await db
+            .select()
+            .from(mandatoryExpenses)
+
+          const totalMandatory = mandatory
+            .reduce((sum, e) => sum + e.amount, 0)
+
+          const disposable = monthlyIncome - totalMandatory
+          
+          const dailyBudget = Math.max(0, disposable / daysInMonth)
+
+          set({ 
+            monthlyIncome,
+            totalMandatory,
+            dailyBudget,
+          })
+
+        } catch (error) {
+        }
       },
 
       fetchIncomeSources: async () => {

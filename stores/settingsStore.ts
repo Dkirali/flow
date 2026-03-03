@@ -11,6 +11,7 @@ interface NotificationSettings {
   paydayReminder: boolean
   monthlyReport: boolean
   recurringAlert: boolean
+  securityAlerts: boolean
 }
 
 interface SettingsStore {
@@ -20,6 +21,7 @@ interface SettingsStore {
   accentColor: string
   aiEnabled: boolean
   aiDataScope: '1M' | '3M' | '6M' | 'all'
+  dataScopeMonths: number
   investmentComparisons: boolean
   notifications: NotificationSettings
   // Income settings
@@ -31,6 +33,7 @@ interface SettingsStore {
   setAccentColor: (color: string) => void
   setAiEnabled: (enabled: boolean) => void
   setAiDataScope: (scope: '1M' | '3M' | '6M' | 'all') => void
+  setDataScopeMonths: (months: number) => void
   setInvestmentComparisons: (enabled: boolean) => void
   setNotification: (key: keyof NotificationSettings, value: boolean | string | number) => void
   // Income methods
@@ -46,6 +49,7 @@ export const useSettingsStore = create<SettingsStore>()(
       accentColor: '#6C63FF',
       aiEnabled: true,
       aiDataScope: '3M',
+      dataScopeMonths: 12,
       investmentComparisons: true,
       notifications: {
         dailyReminder: true,
@@ -55,6 +59,7 @@ export const useSettingsStore = create<SettingsStore>()(
         paydayReminder: true,
         monthlyReport: false,
         recurringAlert: false,
+        securityAlerts: false,
       },
       // Income defaults
       monthlyIncome: 0,
@@ -68,6 +73,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setAccentColor: (color) => set({ accentColor: color }),
       setAiEnabled: (enabled) => set({ aiEnabled: enabled }),
       setAiDataScope: (scope) => set({ aiDataScope: scope }),
+      setDataScopeMonths: (months) => set({ dataScopeMonths: months }),
       setInvestmentComparisons: (enabled) => set({ investmentComparisons: enabled }),
       setNotification: (key, value) =>
         set((state) => ({

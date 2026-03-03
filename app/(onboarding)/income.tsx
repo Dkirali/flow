@@ -7,8 +7,10 @@ import { useState } from 'react'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path, Circle, Rect } from 'react-native-svg'
+import { format } from 'date-fns'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useBudgetStore } from '@/stores/budgetStore'
+import { useTransactionStore } from '@/stores/transactionStore'
 import { CurrencySelector } from '@/components/ui/CurrencySelector'
 import { getCurrencyByCode } from '@/constants/currencies'
 import { ChevronDown, Repeat } from 'lucide-react-native'
@@ -33,7 +35,7 @@ function ProgressDots({
           key={index}
           onPress={() => {
             if (index === 0) 
-              router.push('/(onboarding)/')
+              router.push('/(onboarding)')
             if (index === 1) 
               router.push('/(onboarding)/income')
             if (index === 2) 
@@ -262,7 +264,8 @@ export default function OnboardingIncomeScreen() {
   const [customDay, setCustomDay] = useState<number | null>(null)
 
   const { currency, setCurrency } = useSettingsStore()
-  const { addIncomeSource, recalculate } = useBudgetStore()
+  const { recalculate } = useBudgetStore()
+  const { addTransaction } = useTransactionStore()
   const currentCurrency = getCurrencyByCode(currency)
 
   const handleAmountChange = (text: string) => {
@@ -295,19 +298,26 @@ export default function OnboardingIncomeScreen() {
 
       setIncome(numericAmount, paydayDayValue, frequency)
       
-      await addIncomeSource({
-        name: 'Monthly Income',
+      // Add as a transaction so it shows in dashboard
+      await addTransaction({
         amount: numericAmount,
+        type: 'income',
         category: 'salary',
-        isRecurring,
+        note: 'Monthly Income',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        time: format(new Date(), 'HH:mm'),
+        isMandatory: false,
+        isLeisure: false,
+        isRecurring: isRecurring,
         recurringFrequency: 'monthly',
         recurringDay: paydayDayValue,
         currencyCode: currency,
       })
+      
       recalculate()
       router.push('/(onboarding)/notifications')
     } catch (err) {
-      setError('Failed to save. Please try again.')
+      setError('Failed to save. Try again.')
     } finally {
       setIsLoading(false)
     }

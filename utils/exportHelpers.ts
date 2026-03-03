@@ -35,7 +35,7 @@ export async function exportToCSV(transactions: Transaction[]): Promise<void> {
 
   // Write to file
   const fileName = `flow-transactions-${new Date().toISOString().split('T')[0]}.csv`
-  const filePath = `${FileSystem.cacheDirectory}${fileName}`
+  const filePath = `${(FileSystem as any).cacheDirectory}${fileName}`
 
   await FileSystem.writeAsStringAsync(filePath, csv)
 

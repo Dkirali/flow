@@ -1,16 +1,19 @@
-import { 
-  startOfWeek, 
-  endOfWeek, 
-  startOfMonth, 
-  endOfMonth, 
-  startOfDay, 
-  endOfDay, 
-  format, 
-  subMonths 
+import {
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfDay,
+  endOfDay,
+  format,
+  subMonths
 } from 'date-fns'
+import { calculateDailyBudget } from './budgetCalculator'
 
 // Types
 export type TimePeriod = 'day' | 'month' | 'year'
+
+export type ConvertAmount = (amount: number, currencyCode: string) => number
 
 export interface Transaction {
   id: string
@@ -19,6 +22,11 @@ export interface Transaction {
   description: string
   date: Date
   type: 'income' | 'expense'
+  currencyCode?: string
+  isMandatory?: boolean
+  isLeisure?: boolean
+  isRecurring?: boolean
+  recurringFrequency?: 'monthly' | 'weekly' | 'biweekly'
 }
 
 export interface ChartDataPoint {
@@ -41,23 +49,24 @@ export interface DashboardStats {
 // Aggregate transactions by time period
 export function aggregateTransactionsByPeriod(
   transactions: Transaction[],
-  period: TimePeriod
+  period: TimePeriod,
+  convertAmount: ConvertAmount = (a) => a
 ): ChartDataPoint[] {
   const now = new Date()
 
   switch (period) {
     case 'day':
-      return aggregateByHour(transactions, now)
+      return aggregateByHour(transactions, now, convertAmount)
     case 'month':
-      return aggregateByWeek(transactions, now)
+      return aggregateByWeek(transactions, now, convertAmount)
     case 'year':
-      return aggregateByMonth(transactions, now)
+      return aggregateByMonth(transactions, now, convertAmount)
     default:
       return []
   }
 }
 
-function aggregateByHour(transactions: Transaction[], date: Date): ChartDataPoint[] {
+function aggregateByHour(transactions: Transaction[], date: Date, convertAmount: ConvertAmount): ChartDataPoint[] {
   // Compare today vs yesterday
   const todayStart = startOfDay(date)
   const todayEnd = endOfDay(date)
@@ -78,11 +87,11 @@ function aggregateByHour(transactions: Transaction[], date: Date): ChartDataPoin
 
     const income = dayTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0)
-    
+      .reduce((sum, t) => sum + convertAmount(t.amount, t.currencyCode ?? 'USD'), 0)
+
     const expense = dayTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0)
+      .reduce((sum, t) => sum + convertAmount(t.amount, t.currencyCode ?? 'USD'), 0)
 
     return {
       label: day.label,
@@ -93,7 +102,7 @@ function aggregateByHour(transactions: Transaction[], date: Date): ChartDataPoin
   })
 }
 
-function aggregateByWeek(transactions: Transaction[], date: Date): ChartDataPoint[] {
+function aggregateByWeek(transactions: Transaction[], date: Date, convertAmount: ConvertAmount): ChartDataPoint[] {
   // Get current week (Monday-Sunday)
   const currentWeekStart = startOfWeek(date, { weekStartsOn: 1 }) // 1 = Monday
   const currentWeekEnd = endOfWeek(date, { weekStartsOn: 1 })
@@ -114,11 +123,11 @@ function aggregateByWeek(transactions: Transaction[], date: Date): ChartDataPoin
 
     const income = weekTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0)
+      .reduce((sum, t) => sum + convertAmount(t.amount, t.currencyCode ?? 'USD'), 0)
 
     const expense = weekTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0)
+      .reduce((sum, t) => sum + convertAmount(t.amount, t.currencyCode ?? 'USD'), 0)
 
     return {
       label: week.label,
@@ -129,7 +138,7 @@ function aggregateByWeek(transactions: Transaction[], date: Date): ChartDataPoin
   })
 }
 
-function aggregateByMonth(transactions: Transaction[], date: Date): ChartDataPoint[] {
+function aggregateByMonth(transactions: Transaction[], date: Date, convertAmount: ConvertAmount): ChartDataPoint[] {
   // Compare this month vs last month
   const thisMonthStart = startOfMonth(date)
   const thisMonthEnd = endOfMonth(date)
@@ -150,11 +159,11 @@ function aggregateByMonth(transactions: Transaction[], date: Date): ChartDataPoi
 
     const income = monthTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0)
+      .reduce((sum, t) => sum + convertAmount(t.amount, t.currencyCode ?? 'USD'), 0)
 
     const expense = monthTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0)
+      .reduce((sum, t) => sum + convertAmount(t.amount, t.currencyCode ?? 'USD'), 0)
 
     return {
       label: month.label,
@@ -168,7 +177,9 @@ function aggregateByMonth(transactions: Transaction[], date: Date): ChartDataPoi
 export function calculateDashboardStats(
   transactions: Transaction[],
   period: TimePeriod,
-  monthlyIncome: number = 5000
+  monthlyIncome: number = 5000,
+  convertAmount: ConvertAmount = (a) => a,
+  mandatoryExpenses: { amount: number }[] = []
 ): DashboardStats {
   const now = new Date()
   
@@ -180,36 +191,24 @@ export function calculateDashboardStats(
 
   const transactionIncome = periodTransactions
     .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0)
+    .reduce((sum, t) => sum + convertAmount(t.amount, t.currencyCode ?? 'USD'), 0)
 
+  const totalIncome = transactionIncome
   const daysInMonth = endOfMonth(now).getDate()
-
-  // When no income transactions exist, fall back to the declared monthly income
-  // scaled to the selected period so the dashboard always shows meaningful data
-  const declaredPeriodIncome = (() => {
-    if (transactionIncome > 0) return transactionIncome
-    switch (period) {
-      case 'day': return monthlyIncome / daysInMonth
-      case 'month': return monthlyIncome
-      case 'year': return monthlyIncome * 12
-    }
-  })()
-
-  const totalIncome = declaredPeriodIncome
 
   const totalExpenses = periodTransactions
     .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0)
+    .reduce((sum, t) => sum + convertAmount(t.amount, t.currencyCode ?? 'USD'), 0)
 
   const totalSavings = totalIncome - totalExpenses
-  const dailyBudget = monthlyIncome / daysInMonth
+  const dailyBudget = calculateDailyBudget(monthlyIncome, mandatoryExpenses)
 
   const todayStart = startOfDay(now)
   const todayEnd = endOfDay(now)
   const todayTransactions = transactions.filter(t => 
     t.date >= todayStart && t.date <= todayEnd && t.type === 'expense'
   )
-  const spentToday = todayTransactions.reduce((sum, t) => sum + t.amount, 0)
+  const spentToday = todayTransactions.reduce((sum, t) => sum + convertAmount(t.amount, t.currencyCode ?? 'USD'), 0)
 
   const remainingBudget = Math.max(0, dailyBudget - spentToday)
   const daysRemaining = daysInMonth - now.getDate() + 1
@@ -300,7 +299,7 @@ export function getRecentTransactions(
   limit: number = 5
 ): Transaction[] {
   return transactions
-    .filter(t => t.type === 'expense')
+    .filter(t => t.type === 'expense' || t.type === 'income')
     .sort((a, b) => b.date.getTime() - a.date.getTime())
     .slice(0, limit)
 }
@@ -332,13 +331,15 @@ export function calculateBudgetRing(
   dailyBudget: number,
   spentToday: number
 ) {
-  const spent = Math.min(spentToday, dailyBudget)
-  const remaining = Math.max(0, dailyBudget - spentToday)
-  const percentage = dailyBudget > 0 ? (spent / dailyBudget) * 100 : 0
   const isOverBudget = spentToday > dailyBudget
+  // Allow negative remaining to show overspending
+  const remaining = dailyBudget - spentToday
+  // Calculate percentage - cap at 100% for ring display when over budget
+  const rawPercentage = dailyBudget > 0 ? (spentToday / dailyBudget) * 100 : 0
+  const percentage = isOverBudget ? 100 : Math.min(rawPercentage, 100)
 
   return {
-    percentage: Math.min(percentage, 100),
+    percentage,
     remaining,
     spent: spentToday,
     isOverBudget,
