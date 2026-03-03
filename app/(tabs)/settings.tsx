@@ -10,6 +10,8 @@ import {
   FlatList,
   useColorScheme,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState, useCallback, useEffect, useContext, createContext } from 'react'
@@ -21,7 +23,6 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useBudgetStore } from '@/stores/budgetStore'
 import { useTransactionStore } from '@/stores/transactionStore'
 import { currencies } from '@/constants/currencies'
-import { KeyboardAvoidingView, Platform } from 'react-native'
 
 const ACCENT_COLORS = ['#6C63FF', '#00C9A7', '#FF6B6B', '#FFD93D', '#4CC9F0'] as const
 const SCOPE_MIN = 1
