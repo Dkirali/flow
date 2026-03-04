@@ -612,7 +612,7 @@ function EditProfileModal({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -621,24 +621,25 @@ function EditProfileModal({
           style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' }}
           onPress={onClose}
         >
-          <Pressable onPress={(e) => e.stopPropagation()}>
-            <View
-              style={{
-                backgroundColor: c.card,
-                borderTopLeftRadius: 24,
-                borderTopRightRadius: 24,
-                padding: 24,
-                maxHeight: '80%',
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
-                <Text style={{ flex: 1, color: c.text, fontSize: 20, fontWeight: '700' }}>
-                  Edit Profile
-                </Text>
-                <Pressable onPress={onClose} hitSlop={12}>
-                  <X size={22} color={c.subtext} />
-                </Pressable>
-              </View>
+          <Pressable 
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: c.card,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 24,
+              paddingBottom: 40,
+              maxHeight: '85%',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+              <Text style={{ flex: 1, color: c.text, fontSize: 20, fontWeight: '700' }}>
+                Edit Profile
+              </Text>
+              <Pressable onPress={onClose} hitSlop={12}>
+                <X size={22} color={c.subtext} />
+              </Pressable>
+            </View>
 
               <Text style={{ color: c.subtext, fontSize: 13, marginBottom: 6 }}>Name</Text>
               <TextInput
@@ -677,7 +678,6 @@ function EditProfileModal({
                   Save Changes
                 </Text>
               </Pressable>
-            </View>
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
@@ -708,7 +708,7 @@ function EditIncomeModal({
   }, [visible, currentIncome])
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -717,24 +717,25 @@ function EditIncomeModal({
           style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' }}
           onPress={onClose}
         >
-          <Pressable onPress={(e) => e.stopPropagation()}>
-            <View
-              style={{
-                backgroundColor: c.card,
-                borderTopLeftRadius: 24,
-                borderTopRightRadius: 24,
-                padding: 24,
-                maxHeight: '80%',
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
-                <Text style={{ flex: 1, color: c.text, fontSize: 20, fontWeight: '700' }}>
-                  Monthly Income
-                </Text>
-                <Pressable onPress={onClose} hitSlop={12}>
-                  <X size={22} color={c.subtext} />
-                </Pressable>
-              </View>
+          <Pressable 
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: c.card,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 24,
+              paddingBottom: 40,
+              maxHeight: '85%',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+              <Text style={{ flex: 1, color: c.text, fontSize: 20, fontWeight: '700' }}>
+                Monthly Income
+              </Text>
+              <Pressable onPress={onClose} hitSlop={12}>
+                <X size={22} color={c.subtext} />
+              </Pressable>
+            </View>
 
               <Text style={{ color: c.subtext, fontSize: 13, marginBottom: 6 }}>
                 Amount ({currencySymbol})
@@ -771,7 +772,6 @@ function EditIncomeModal({
               >
                 <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>Save</Text>
               </Pressable>
-            </View>
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
@@ -794,21 +794,22 @@ function CurrencyPickerModal({
 }) {
   const c = useColors()
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent>
       <Pressable
         style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' }}
         onPress={onClose}
       >
-        <Pressable onPress={(e) => e.stopPropagation()}>
-          <View
-            style={{
-              backgroundColor: c.card,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              paddingTop: 24,
-              height: '75%',
-            }}
-          >
+        <Pressable 
+          onPress={(e) => e.stopPropagation()}
+          style={{
+            backgroundColor: c.card,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingTop: 24,
+            paddingBottom: 40,
+            height: '80%',
+          }}
+        >
           <View
             style={{
               flexDirection: 'row',
@@ -829,6 +830,7 @@ function CurrencyPickerModal({
             data={[...currencies]}
             keyExtractor={(item) => item.code}
             showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
             renderItem={({ item }) => {
               const isSelected = item.code === selectedCode
               return (
@@ -861,8 +863,7 @@ function CurrencyPickerModal({
                 </Pressable>
               )
             }}
-            />
-          </View>
+          />
         </Pressable>
       </Pressable>
     </Modal>

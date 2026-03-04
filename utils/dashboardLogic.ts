@@ -9,6 +9,7 @@ import {
   subMonths
 } from 'date-fns'
 import { calculateDailyBudget } from './budgetCalculator'
+import { SAVINGS_GOAL_THRESHOLD, DEFAULT_SAVINGS_GOAL_PERCENTAGE } from '@/constants/budget'
 
 // Types
 export type TimePeriod = 'day' | 'month' | 'year'
@@ -247,7 +248,7 @@ function getDateRange(period: TimePeriod, date: Date): { start: Date; end: Date 
 export function calculateGoalProgress(
   transactions: Transaction[],
   monthlyIncome: number,
-  savingsGoalPercentage: number = 20
+  savingsGoalPercentage: number = DEFAULT_SAVINGS_GOAL_PERCENTAGE
 ) {
   const now = new Date()
   const monthStart = startOfMonth(now)
@@ -277,7 +278,7 @@ export function calculateGoalProgress(
   let message = ''
   if (remainingToGoal <= 0) {
     message = '🎉 You hit your savings goal! Amazing work!'
-  } else if (remainingToGoal <= 10) {
+  } else if (remainingToGoal <= SAVINGS_GOAL_THRESHOLD) {
     message = `TRY SAVING $${Math.ceil(remainingToGoal)} MORE THIS WEEK TO HIT YOUR GOAL`
   } else if (isOnTrack) {
     message = `You're on track! Keep saving $${Math.ceil(remainingToGoal / (daysInMonth - daysPassed))} per day`
