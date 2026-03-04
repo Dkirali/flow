@@ -1,4 +1,4 @@
-import { View, Text, Pressable, ScrollView, SafeAreaView, ActivityIndicator, useColorScheme } from 'react-native'
+import { View, Text, Pressable, ScrollView, SafeAreaView, ActivityIndicator, useColorScheme, Alert } from 'react-native'
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { router } from 'expo-router'
 import Svg, { Path } from 'react-native-svg'
@@ -145,8 +145,8 @@ export default function DashboardScreen() {
   const isMounted = useRef(true)
 
   const { name } = useUserStore()
-  const { monthlyIncome: settingsIncome, theme, accentColor, currencySymbol } = useSettingsStore()
-  const { incomeSources, mandatoryExpenses } = useBudgetStore()
+  const { theme, accentColor, currencySymbol } = useSettingsStore()
+  const { incomeSources, mandatoryExpenses, monthlyIncome } = useBudgetStore()
   const { transactions: storeTransactions, deleteTransaction, updateTransaction } = useTransactionStore()
   const { convertToBase } = useExchangeRates()
   const systemScheme = useColorScheme()
@@ -180,13 +180,6 @@ export default function DashboardScreen() {
       unsub()
     }
   }, [])
-
-  // Resolve monthly income: settings → budget sources → 0
-  const monthlyIncome = useMemo(() => {
-    if (settingsIncome > 0) return settingsIncome
-    const calculated = incomeSources.reduce((sum, s) => sum + s.amount, 0)
-    return calculated > 0 ? calculated : 0
-  }, [settingsIncome, incomeSources])
 
   // Convert store transactions (string dates) → dashboard Transaction type (Date objects)
   const transactions = useMemo<DashboardTransaction[]>(() =>
@@ -349,7 +342,7 @@ export default function DashboardScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>Recent Activity</Text>
               {hasTransactions && (
-                <Pressable>
+                <Pressable onPress={() => router.push('/(tabs)/calendar')}>
                   <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '600' }}>VIEW ALL</Text>
                 </Pressable>
               )}
@@ -396,9 +389,9 @@ export default function DashboardScreen() {
             shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
           }}>
             {[
-              { label: 'Export Data',       icon: '📊' },
-              { label: 'View Breakdown',    icon: '📈' },
-              { label: 'Filter Categories', icon: '🏷️' },
+              { label: 'Export Data',       icon: '📊', action: () => Alert.alert('Coming Soon', 'CSV export will be available in a future update.') },
+              { label: 'View Breakdown',    icon: '📈', action: () => router.push('/(tabs)/calendar') },
+              { label: 'Filter Categories', icon: '🏷️', action: () => Alert.alert('Coming Soon', 'Category filtering will be available in a future update.') },
             ].map((option, index) => (
               <Pressable
                 key={option.label}
@@ -407,7 +400,7 @@ export default function DashboardScreen() {
                   borderBottomWidth: index !== 2 ? 1 : 0,
                   borderBottomColor: colors.divider,
                 }}
-                onPress={() => setShowChartOptions(false)}
+                onPress={() => { setShowChartOptions(false); option.action() }}
               >
                 <Text style={{ fontSize: 18, marginRight: 12 }}>{option.icon}</Text>
                 <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>{option.label}</Text>

@@ -3,11 +3,12 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { generateId } from '@/utils/generateId'
 import { db } from '@/db/client'
-import { incomeSources, mandatoryExpenses, transactions } from '@/db/schema'
-import { eq, and, like } from 'drizzle-orm'
+import { incomeSources, mandatoryExpenses } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 import { calculateDailyBudget } from '@/utils/budgetCalculator'
-import { format, getDaysInMonth } from 'date-fns'
+import { getDaysInMonth } from 'date-fns'
 import type { IncomeSource, NewIncomeSource, MandatoryExpense, NewMandatoryExpense } from '@/types/transaction'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 interface BudgetStore {
   incomeSources: IncomeSource[]
@@ -38,22 +39,12 @@ export const useBudgetStore = create<BudgetStore>()(
       recalculate: async () => {
         try {
           const now = new Date()
-          const currentMonth = format(now, 'yyyy-MM')
           const daysInMonth = getDaysInMonth(now)
 
-          // Get all income transactions for current month
-          const allTransactions = await db
-            .select()
-            .from(transactions)
-            .where(
-              and(
-                eq(transactions.type, 'income'),
-                like(transactions.date, `${currentMonth}%`)
-              )
-            )
-
-          const monthlyIncome = allTransactions
-            .reduce((sum, t) => sum + t.amount, 0)
+          // Income is the user-configured expected monthly income (single source of truth).
+          // Reading from settingsStore keeps the budget stable pre-payday and eliminates
+          // the transaction-sync loop that previously lived in transactionStore.
+          const { monthlyIncome } = useSettingsStore.getState()
 
           // Get all mandatory expenses
           const mandatory = await db

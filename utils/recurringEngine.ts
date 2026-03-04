@@ -4,6 +4,7 @@ import { generateId } from '@/utils/generateId'
 import { db } from '@/db/client'
 import { incomeSources, mandatoryExpenses, transactions } from '@/db/schema'
 import type { IncomeSource, MandatoryExpense } from '@/types/transaction'
+import { useBudgetStore } from '@/stores/budgetStore'
 
 /**
  * Process recurring transactions and income sources on app launch
@@ -20,7 +21,7 @@ export async function processRecurringTransactions() {
       if (!source.isRecurring) continue
       if (source.recurringDay !== dayOfMonth) continue
       
-      const alreadyExists = await checkTodayTransactionExists(source.id, 'income')
+      const alreadyExists = await checkTodayTransactionExists(source.name, 'income')
       if (!alreadyExists) {
         await createTransactionFromSource(source as IncomeSource)
       }
@@ -31,20 +32,23 @@ export async function processRecurringTransactions() {
     for (const expense of expenses) {
       if (!expense.isRecurring) continue
       if (expense.recurringDay !== dayOfMonth) continue
-      
-      const alreadyExists = await checkTodayTransactionExists(expense.id, 'expense')
+
+      const alreadyExists = await checkTodayTransactionExists(expense.name, 'expense')
       if (!alreadyExists) {
         await createTransactionFromExpense(expense as MandatoryExpense)
       }
     }
-    
+
+    // Refresh daily budget now that recurring transactions have been created
+    await useBudgetStore.getState().recalculate()
+
   } catch (error) {
     // Errors handled silently in production
   }
 }
 
 async function checkTodayTransactionExists(
-  sourceId: string,
+  sourceName: string,
   type: 'income' | 'expense'
 ): Promise<boolean> {
   const today = new Date()
@@ -59,7 +63,8 @@ async function checkTodayTransactionExists(
         and(
           eq(transactions.date, today),
           eq(transactions.type, type),
-          eq(transactions.isRecurring, true)
+          eq(transactions.isRecurring, true),
+          eq(transactions.note, sourceName)
         )
       )
 

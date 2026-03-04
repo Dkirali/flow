@@ -231,9 +231,11 @@ export default function OnboardingNotificationsScreen() {
 
   const cancelNotification = async (id: string) => {
     try {
-      await Notifications.cancelScheduledNotificationAsync(id)
+      if (id === 'dailyReminder') {
+        await Notifications.cancelAllScheduledNotificationsAsync()
+      }
     } catch (error) {
-      
+
     }
   }
 

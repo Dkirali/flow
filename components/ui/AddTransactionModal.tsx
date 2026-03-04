@@ -148,7 +148,7 @@ export function AddTransactionModal({
         const cat = cats.find(c => c.name === editTransaction.category)
         setSelectedCategory(cat || null)
         
-        setDate(new Date(editTransaction.date))
+        setDate(new Date(editTransaction.date + 'T00:00:00'))
         if (editTransaction.time) {
           const [hours, minutes] = editTransaction.time.split(':')
           const timeDate = new Date()

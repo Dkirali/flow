@@ -265,7 +265,7 @@ export default function OnboardingIncomeScreen() {
 
   const { currency, setCurrency } = useSettingsStore()
   const { recalculate } = useBudgetStore()
-  const { addTransaction } = useTransactionStore()
+  const { addTransaction, updateTransaction } = useTransactionStore()
   const currentCurrency = getCurrencyByCode(currency)
 
   const handleAmountChange = (text: string) => {
@@ -297,22 +297,36 @@ export default function OnboardingIncomeScreen() {
         paydayOption === 'biweekly' ? 'bi-weekly' : 'monthly'
 
       setIncome(numericAmount, paydayDayValue, frequency)
-      
-      // Add as a transaction so it shows in dashboard
-      await addTransaction({
-        amount: numericAmount,
-        type: 'income',
-        category: 'salary',
-        note: 'Monthly Income',
-        date: format(new Date(), 'yyyy-MM-dd'),
-        time: format(new Date(), 'HH:mm'),
-        isMandatory: false,
-        isLeisure: false,
-        isRecurring: isRecurring,
-        recurringFrequency: 'monthly',
-        recurringDay: paydayDayValue,
-        currencyCode: currency,
-      })
+
+      // Guard against duplicate: if an onboarding income entry already exists, update it
+      await useTransactionStore.getState().fetchAll()
+      const existing = useTransactionStore.getState().transactions.find(
+        t => t.type === 'income' && t.note === 'Monthly Income'
+      )
+
+      if (existing) {
+        await updateTransaction(existing.id, {
+          amount: numericAmount,
+          recurringDay: paydayDayValue,
+          isRecurring: isRecurring,
+          currencyCode: currency,
+        })
+      } else {
+        await addTransaction({
+          amount: numericAmount,
+          type: 'income',
+          category: 'salary',
+          note: 'Monthly Income',
+          date: format(new Date(), 'yyyy-MM-dd'),
+          time: format(new Date(), 'HH:mm'),
+          isMandatory: false,
+          isLeisure: false,
+          isRecurring: isRecurring,
+          recurringFrequency: 'monthly',
+          recurringDay: paydayDayValue,
+          currencyCode: currency,
+        })
+      }
       
       recalculate()
       router.push('/(onboarding)/notifications')
