@@ -1,16 +1,46 @@
+import { Platform } from 'react-native'
 import { drizzle } from 'drizzle-orm/expo-sqlite'
-import { openDatabaseSync } from 'expo-sqlite'
 import * as schema from './schema'
 
-const expoDb = openDatabaseSync('flow.db', {
-  enableChangeListener: true,
-})
+// ── Web no-op proxy ───────────────────────────────────────────────────────────
+// expo-sqlite's openDatabaseSync is not available in a browser.
+// When running `expo start --web` every db call resolves to [] so screens
+// can render without crashing. Native code paths are completely unaffected.
+function makeNoopProxy(): any {
+  const resolved = Promise.resolve([])
+  return new Proxy(resolved, {
+    get(target: any, prop: string) {
+      if (prop === 'then' || prop === 'catch' || prop === 'finally') {
+        return target[prop].bind(target)
+      }
+      return (..._args: any[]) => makeNoopProxy()
+    },
+  })
+}
 
-export const db = drizzle(expoDb, { schema })
+// ── Conditionally initialise SQLite (native) or no-op (web) ──────────────────
+let _db: any
+let _expoDb: { execSync: (sql: string) => void } | null = null
+
+if (Platform.OS !== 'web') {
+  // Dynamic require keeps the expo-sqlite import out of the Metro web bundle
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { openDatabaseSync } = require('expo-sqlite')
+  const expoDb = openDatabaseSync('flow.db', { enableChangeListener: true })
+  _expoDb = expoDb
+  _db = drizzle(expoDb, { schema })
+} else {
+  _db = makeNoopProxy()
+}
+
+export const db: ReturnType<typeof drizzle> = _db
 
 export async function runMigrations() {
+  // SQLite is not available in the browser — skip silently
+  if (Platform.OS === 'web' || !_expoDb) return
+
   try {
-    expoDb.execSync(`
+    _expoDb.execSync(`
       CREATE TABLE IF NOT EXISTS transactions (
         id TEXT PRIMARY KEY NOT NULL,
         amount REAL NOT NULL,
@@ -66,7 +96,7 @@ export async function runMigrations() {
       `ALTER TABLE income_sources ADD COLUMN currency_code TEXT DEFAULT 'USD'`,
     ]
     for (const sql of alterStatements) {
-      try { expoDb.execSync(sql) } catch { /* column already exists */ }
+      try { _expoDb.execSync(sql) } catch { /* column already exists */ }
     }
   } catch (error) {
     throw error

@@ -59,15 +59,6 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       await db.insert(transactions).values(transactionToInsert)
       await get().fetchAll()
 
-      // Sync monthly income setting whenever an income transaction is added
-      if (newTransaction.type === 'income') {
-        const incomeTotal = get().transactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + t.amount, 0)
-        const { paydayDay, paydayFrequency } = useSettingsStore.getState()
-        useSettingsStore.getState().setIncome(incomeTotal, paydayDay || 1, paydayFrequency || 'monthly')
-      }
-
       // Sync mandatory expenses whenever a mandatory expense transaction is added
       if (newTransaction.type === 'expense' && (newTransaction.isMandatory ?? false)) {
         const name = newTransaction.note ?? newTransaction.category
@@ -90,7 +81,7 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
         const percentage = getRemainingPercentage(remaining, dailyBudget)
 
         if (percentage <= 20 && dailyBudget > 0) {
-          const { notifications } = useSettingsStore.getState()
+          const { notifications, currencySymbol } = useSettingsStore.getState()
           if (notifications.budgetAlert) {
             // Only fire once per day
             const lastFiredKey = 'budget_alert_last_fired'
@@ -102,7 +93,7 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
               await Notifications.scheduleNotificationAsync({
                 content: {
                   title: 'Budget Alert 🟡',
-                  body: `You have used ${Math.round(100 - percentage)}% of today's budget. $${remaining.toFixed(2)} remaining.`,
+                  body: `You have used ${Math.round(100 - percentage)}% of today's budget. ${currencySymbol}${remaining.toFixed(2)} remaining.`,
                 },
                 trigger: null, // fires immediately
               })
@@ -118,18 +109,10 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
 
   updateTransaction: async (id, updates) => {
     try {
+      const original = get().transactions.find(t => t.id === id)
       await db.update(transactions).set(updates).where(eq(transactions.id, id))
       await get().fetchAll()
 
-      // Sync monthly income if an income transaction was updated
-      const updated = get().transactions.find(t => t.id === id)
-      if (updated?.type === 'income') {
-        const incomeTotal = get().transactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + t.amount, 0)
-      const { paydayDay, paydayFrequency } = useSettingsStore.getState()
-        useSettingsStore.getState().setIncome(incomeTotal, paydayDay || 1, paydayFrequency || 'monthly')
-      }
     } catch (error) {
 
       throw error
@@ -141,15 +124,6 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       const txn = get().transactions.find(t => t.id === id)
       await db.delete(transactions).where(eq(transactions.id, id))
       await get().fetchAll()
-
-      // Sync monthly income setting whenever an income transaction is deleted
-      if (txn?.type === 'income') {
-        const incomeTotal = get().transactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + t.amount, 0)
-      const { paydayDay, paydayFrequency } = useSettingsStore.getState()
-        useSettingsStore.getState().setIncome(incomeTotal, paydayDay || 1, paydayFrequency || 'monthly')
-      }
 
       // Remove from mandatory expenses when a mandatory expense transaction is deleted
       if (txn?.isMandatory && txn?.type === 'expense') {
@@ -177,12 +151,6 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
         .where(eq(transactions.id, txn.id))
     }
     await get().fetchAll()
-    // Re-sync monthly income after conversion
-    const incomeTotal = get().transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0)
-    const { paydayDay, paydayFrequency } = useSettingsStore.getState()
-    useSettingsStore.getState().setIncome(incomeTotal, paydayDay || 1, paydayFrequency || 'monthly')
   },
 
   getByDate: (date) => {
@@ -204,8 +172,6 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
     try {
       await db.delete(transactions)
       set({ transactions: [] })
-      const { paydayDay, paydayFrequency } = useSettingsStore.getState()
-      useSettingsStore.getState().setIncome(0, paydayDay || 1, paydayFrequency || 'monthly')
       useBudgetStore.getState().recalculate()
     } catch (error) {
       throw error

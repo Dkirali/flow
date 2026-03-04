@@ -4,8 +4,6 @@ import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path, Circle } from 'react-native-svg'
 import { useUserStore } from '@/stores/userStore'
-import { db } from '@/db/client'
-import { settings } from '@/db/schema'
 
 function NeuralNetwork() {
   return (
@@ -79,15 +77,6 @@ export default function OnboardingNameScreen() {
     
     try {
       setStoreName(name.trim())
-      
-      await db.insert(settings).values({
-        key: 'user_name',
-        value: name.trim(),
-      }).onConflictDoUpdate({
-        target: settings.key,
-        set: { value: name.trim() },
-      })
-
       router.push('/(onboarding)/income')
     } catch (error) {
       // Error handled silently
