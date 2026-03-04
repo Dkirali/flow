@@ -15,7 +15,7 @@ import { useUserStore } from '@/stores/userStore'
 import { processRecurringTransactions } from '@/utils/recurringEngine'
 
 // Bump this string to trigger a one-time wipe of all user data on next launch.
-const RESET_VERSION = '2'
+const RESET_VERSION = '3'
 
 function RootLayoutNav() {
   const { fetchAll } = useTransactionStore()

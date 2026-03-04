@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useBudgetStore } from '@/stores/budgetStore'
 import { useTransactionStore } from '@/stores/transactionStore'
 import { useExchangeRates } from '@/hooks/useExchangeRates'
+import { getCategoryEmoji } from '@/utils/categoryHelpers'
 import {
   aggregateTransactionsByPeriod,
   calculateDashboardStats,
@@ -23,6 +24,7 @@ import DraggableFAB from '@/components/ui/DraggableFAB'
 import HorizontalBarChart from '@/components/ui/HorizontalBarChart'
 import { SwipeableTransactionItem } from '@/components/ui/SwipeableTransactionItem'
 import { AddTransactionModal } from '@/components/ui/AddTransactionModal'
+import type { Transaction } from '@/types/transaction'
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
@@ -70,16 +72,7 @@ function getPeriodLabel(period: TimePeriod): string {
 // ─── Category icon helper ─────────────────────────────────────────────────────
 
 function CategoryIcon({ category, isDark }: { category: string; isDark: boolean }) {
-  const lower = category.toLowerCase()
-  let icon = '💳'
-  if (lower.includes('food') || lower.includes('drink') || lower.includes('coffee') || lower.includes('dining') || lower.includes('grocer')) icon = '🍔'
-  else if (lower.includes('transport') || lower.includes('uber') || lower.includes('lyft')) icon = '🚗'
-  else if (lower.includes('shopping') || lower.includes('retail')) icon = '🛍️'
-  else if (lower.includes('entertainment') || lower.includes('movie')) icon = '🎬'
-  else if (lower.includes('health') || lower.includes('gym')) icon = '💊'
-  else if (lower.includes('rent') || lower.includes('housing') || lower.includes('mortgage')) icon = '🏠'
-  else if (lower.includes('salary') || lower.includes('income')) icon = '💰'
-  else if (lower.includes('freelance')) icon = '💻'
+  const icon = getCategoryEmoji(category)
   return (
     <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: isDark ? '#2E2D45' : '#E5E7EB', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
       <Text style={{ fontSize: 20 }}>{icon}</Text>
@@ -140,7 +133,7 @@ export default function DashboardScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('month')
   const [showChartOptions, setShowChartOptions] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
-  const [editTransaction, setEditTransaction] = useState<DashboardTransaction | null>(null)
+  const [editTransaction, setEditTransaction] = useState<Transaction | null>(null)
   const [isHydrated, setIsHydrated] = useState(false)
   const isMounted = useRef(true)
 
@@ -355,8 +348,12 @@ export default function DashboardScreen() {
                   transaction={t}
                   isDark={isDark}
                   onEdit={(transaction) => {
-                    setEditTransaction(transaction)
-                    setShowTransactionModal(true)
+                    // Find the original store transaction to pass to the modal
+                    const originalTxn = storeTransactions.find(t => t.id === transaction.id)
+                    if (originalTxn) {
+                      setEditTransaction(originalTxn as any)
+                      setShowTransactionModal(true)
+                    }
                   }}
                   onDelete={(transaction) => {
                     deleteTransaction(transaction.id)
@@ -423,7 +420,7 @@ export default function DashboardScreen() {
           setShowTransactionModal(false)
           setEditTransaction(null)
         }}
-        editTransaction={editTransaction as any || undefined}
+        editTransaction={editTransaction || undefined}
       />
 
     </SafeAreaView>

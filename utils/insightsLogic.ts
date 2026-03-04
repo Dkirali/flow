@@ -4,6 +4,8 @@ import {
   subMonths,
   format,
   eachDayOfInterval,
+  startOfDay,
+  endOfDay,
 } from 'date-fns'
 import type { Transaction } from '@/types/transaction'
 
@@ -379,5 +381,145 @@ export function getAIGoal(
     goalAmount,
     progressPercent,
     currentSpend: parseFloat(topAmt.toFixed(2)),
+  }
+}
+
+// ─── Daily Investment Return Comparison ───────────────────────────────────────
+
+// Simulated daily returns (based on historical volatility)
+const DAILY_RETURNS = {
+  sp500: 0.0003,      // ~0.03% daily (historical avg)
+  bitcoin: 0.004,     // ~0.4% daily (high volatility)
+  gold: 0.0001,       // ~0.01% daily
+  realEstate: 0.0002, // ~0.02% daily
+}
+
+export interface DailyInvestmentResult {
+  expenseId: string
+  expenseName: string
+  expenseAmount: number
+  expenseCategory: string
+  date: string
+}
+
+export function getRecentExpenses(
+  transactions: Transaction[],
+  limit = 10,
+  now = new Date()
+): DailyInvestmentResult[] {
+  const thirtyDaysAgo = new Date(now)
+  thirtyDaysAgo.setDate(now.getDate() - 30)
+
+  return transactions
+    .filter(t => t.type === 'expense')
+    .filter(t => {
+      const d = new Date(t.date + 'T00:00:00')
+      return d >= thirtyDaysAgo
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, limit)
+    .map(t => ({
+      expenseId: t.id,
+      expenseName: t.note || t.category,
+      expenseAmount: t.amount,
+      expenseCategory: t.category,
+      date: t.date,
+    }))
+}
+
+export interface InvestmentComparison {
+  originalAmount: number
+  resultAmount: number
+  delta: number
+  percentChange: number
+  isGain: boolean
+}
+
+export function calculateDailyInvestment(
+  amount: number,
+  asset: 'sp500' | 'bitcoin' | 'gold' | 'realEstate'
+): InvestmentComparison {
+  const dailyReturn = DAILY_RETURNS[asset]
+  const resultAmount = amount * (1 + dailyReturn)
+  const delta = resultAmount - amount
+  const percentChange = dailyReturn * 100
+  
+  return {
+    originalAmount: amount,
+    resultAmount: parseFloat(resultAmount.toFixed(2)),
+    delta: parseFloat(delta.toFixed(2)),
+    percentChange: parseFloat(percentChange.toFixed(3)),
+    isGain: delta > 0,
+  }
+}
+
+// ─── Enhanced Savings Forecast ────────────────────────────────────────────────
+
+export interface EnhancedSavingsForecast {
+  monthlyIncome: number
+  totalMandatory: number
+  avgDiscretionary: number
+  projectedMonthlySavings: number
+  projected3MonthSavings: number
+  isNegative: boolean
+  message: string
+}
+
+export function getEnhancedSavingsForecast(
+  transactions: Transaction[],
+  monthlyIncome: number,
+  mandatoryExpenses: { amount: number }[],
+  now = new Date()
+): EnhancedSavingsForecast {
+  // Sum of mandatory expenses
+  const totalMandatory = mandatoryExpenses.reduce((sum, e) => sum + e.amount, 0)
+  
+  // Average monthly discretionary spending (last 3 months)
+  let totalDiscretionary = 0
+  let monthCount = 0
+  
+  for (let i = 0; i < 3; i++) {
+    const month = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const monthStart = startOfMonth(month)
+    const monthEnd = endOfMonth(month)
+    
+    const discretionary = transactions
+      .filter(t => {
+        const d = new Date(t.date + 'T00:00:00')
+        return t.type === 'expense' 
+          && !t.isMandatory 
+          && d >= monthStart 
+          && d <= monthEnd
+      })
+      .reduce((sum, t) => sum + t.amount, 0)
+    
+    totalDiscretionary += discretionary
+    monthCount++
+  }
+  
+  const avgDiscretionary = monthCount > 0 ? totalDiscretionary / monthCount : 0
+  
+  // Calculate projected savings
+  const projectedMonthlySavings = monthlyIncome - totalMandatory - avgDiscretionary
+  const projected3MonthSavings = projectedMonthlySavings * 3
+  const isNegative = projectedMonthlySavings < 0
+  
+  let message = ''
+  if (isNegative) {
+    message = `At your current pace, you're spending ${Math.abs(projectedMonthlySavings).toFixed(0)} more than you earn each month.`
+  } else if (projectedMonthlySavings === 0) {
+    message = `At your current pace, you'll break even each month.`
+  } else {
+    message = `At your current pace, you'll save this month and in 3 months.`
+  }
+  
+  return {
+    monthlyIncome,
+    totalMandatory: parseFloat(totalMandatory.toFixed(2)),
+    avgDiscretionary: parseFloat(avgDiscretionary.toFixed(2)),
+    projectedMonthlySavings: parseFloat(projectedMonthlySavings.toFixed(2)),
+    projected3MonthSavings: parseFloat(projected3MonthSavings.toFixed(2)),
+    isNegative,
+    message,
   }
 }

@@ -20,6 +20,7 @@ import { useBudgetStore } from '@/stores/budgetStore'
 import { useTransactionStore } from '@/stores/transactionStore'
 import { useExchangeRates } from '@/hooks/useExchangeRates'
 import { getTodayString } from '@/utils/dateHelpers'
+import { getCategoryEmoji } from '@/utils/categoryHelpers'
 import {
   buildMonthGrid,
   buildDotMap,
@@ -116,21 +117,6 @@ function ChevronRight({ color }: { color: string }) {
   )
 }
 
-// ─── Category emoji helper ────────────────────────────────────────────────────
-
-function categoryEmoji(category: string): string {
-  const lower = category.toLowerCase()
-  if (lower.includes('food') || lower.includes('drink') || lower.includes('coffee') || lower.includes('dining') || lower.includes('grocer')) return '🍔'
-  if (lower.includes('transport') || lower.includes('uber') || lower.includes('lyft') || lower.includes('metro') || lower.includes('transit')) return '🚗'
-  if (lower.includes('shopping') || lower.includes('retail')) return '🛍️'
-  if (lower.includes('entertainment') || lower.includes('movie')) return '🎬'
-  if (lower.includes('health') || lower.includes('gym')) return '💊'
-  if (lower.includes('rent') || lower.includes('housing') || lower.includes('mortgage')) return '🏠'
-  if (lower.includes('salary') || lower.includes('income')) return '💰'
-  if (lower.includes('freelance')) return '💻'
-  return '💳'
-}
-
 // ─── Transaction row (non-swipeable) ─────────────────────────────────────────
 
 function DayTransactionRow({
@@ -154,7 +140,7 @@ function DayTransactionRow({
       ]}
     >
       <View style={[styles.txnIcon, { backgroundColor: isDark ? '#2E2D45' : '#E5E7EB' }]}>
-        <Text style={{ fontSize: 18 }}>{categoryEmoji(transaction.category)}</Text>
+        <Text style={{ fontSize: 18 }}>{getCategoryEmoji(transaction.category)}</Text>
       </View>
       <View style={{ flex: 1 }}>
         <Text

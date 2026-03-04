@@ -22,7 +22,16 @@ interface TransactionStore {
   getByDate: (date: string) => Transaction[]
   getByMonth: (year: number, month: number) => Transaction[]
   getTodayExpenses: () => Transaction[]
+  getTotalIncome: () => number
+  recalculateIncome: () => void
   clearAll: () => Promise<void>
+}
+
+// Helper to calculate total income from all income transactions
+function calculateTotalIncome(transactions: Transaction[]): number {
+  return transactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0)
 }
 
 export const useTransactionStore = create<TransactionStore>()((set, get) => ({
@@ -35,7 +44,8 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       const allTransactions = await db.select().from(transactions)
       set({ transactions: allTransactions as Transaction[] })
     } catch (error) {
-      
+      console.error('Failed to fetch transactions:', error)
+      throw new Error('Unable to load transactions. Please try again.')
     } finally {
       set({ isLoading: false })
     }
@@ -70,6 +80,14 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
         })
       }
 
+      // Update monthlyIncome when income transaction is added
+      if (newTransaction.type === 'income') {
+        const currentTransactions = get().transactions
+        const totalIncome = calculateTotalIncome(currentTransactions)
+        const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+        useSettingsStore.getState().setIncome(totalIncome, paydayDay, paydayFrequency)
+      }
+
       // Recalculate budget after adding transaction
       useBudgetStore.getState().recalculate()
 
@@ -102,26 +120,56 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
         }
       }
     } catch (error) {
-      
-      throw error
+      console.error('Failed to add transaction:', error)
+      throw new Error('Failed to save transaction. Please try again.')
     }
   },
 
   updateTransaction: async (id, updates) => {
     try {
       const original = get().transactions.find(t => t.id === id)
+      if (!original) {
+        throw new Error('Transaction not found')
+      }
+
       await db.update(transactions).set(updates).where(eq(transactions.id, id))
       await get().fetchAll()
 
-    } catch (error) {
+      // Sync mandatory expense if this was a mandatory expense being updated
+      if (original?.isMandatory && original?.type === 'expense' && updates.amount !== undefined) {
+        const { mandatoryExpenses, updateMandatoryExpense } = useBudgetStore.getState()
+        const match = mandatoryExpenses.find(e => e.name === (original.note ?? original.category))
+        if (match) {
+          await updateMandatoryExpense(match.id, {
+            amount: updates.amount,
+            category: updates.category ?? original.category,
+          })
+        }
+      }
 
-      throw error
+      // Recalculate income if this was an income transaction
+      if (original?.type === 'income') {
+        const currentTransactions = get().transactions
+        const totalIncome = calculateTotalIncome(currentTransactions)
+        const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+        useSettingsStore.getState().setIncome(totalIncome, paydayDay, paydayFrequency)
+      }
+
+      // Recalculate budget
+      useBudgetStore.getState().recalculate()
+    } catch (error) {
+      console.error('Failed to update transaction:', error)
+      throw new Error('Failed to update transaction. Please try again.')
     }
   },
 
   deleteTransaction: async (id) => {
     try {
       const txn = get().transactions.find(t => t.id === id)
+      if (!txn) {
+        throw new Error('Transaction not found')
+      }
+
       await db.delete(transactions).where(eq(transactions.id, id))
       await get().fetchAll()
 
@@ -129,12 +177,23 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       if (txn?.isMandatory && txn?.type === 'expense') {
         const name = txn.note ?? txn.category
         const { mandatoryExpenses, deleteMandatoryExpense } = useBudgetStore.getState()
-        const match = mandatoryExpenses.find(e => e.name === name && e.amount === txn.amount)
+        const match = mandatoryExpenses.find(e => e.name === name)
         if (match) await deleteMandatoryExpense(match.id)
       }
-    } catch (error) {
 
-      throw error
+      // Recalculate income if this was an income transaction
+      if (txn?.type === 'income') {
+        const currentTransactions = get().transactions
+        const totalIncome = calculateTotalIncome(currentTransactions)
+        const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+        useSettingsStore.getState().setIncome(totalIncome, paydayDay, paydayFrequency)
+      }
+
+      // Recalculate budget
+      useBudgetStore.getState().recalculate()
+    } catch (error) {
+      console.error('Failed to delete transaction:', error)
+      throw new Error('Failed to delete transaction. Please try again.')
     }
   },
 
@@ -151,6 +210,14 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
         .where(eq(transactions.id, txn.id))
     }
     await get().fetchAll()
+
+    // Recalculate income after currency conversion
+    const currentTransactions = get().transactions
+    const totalIncome = calculateTotalIncome(currentTransactions)
+    const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+    useSettingsStore.getState().setIncome(totalIncome, paydayDay, paydayFrequency)
+    
+    useBudgetStore.getState().recalculate()
   },
 
   getByDate: (date) => {
@@ -168,13 +235,39 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
     return get().transactions.filter((t) => t.date === today && t.type === 'expense')
   },
 
+  getTotalIncome: () => {
+    return calculateTotalIncome(get().transactions)
+  },
+
+  recalculateIncome: () => {
+    const currentTransactions = get().transactions
+    const totalIncome = calculateTotalIncome(currentTransactions)
+    const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+    useSettingsStore.getState().setIncome(totalIncome, paydayDay, paydayFrequency)
+    useBudgetStore.getState().recalculate()
+  },
+
   clearAll: async () => {
     try {
+      // Delete all transactions from database
       await db.delete(transactions)
       set({ transactions: [] })
-      useBudgetStore.getState().recalculate()
+
+      // Reset income to 0
+      const { paydayDay, paydayFrequency } = useSettingsStore.getState()
+      useSettingsStore.getState().setIncome(0, paydayDay, paydayFrequency)
+
+      // Clear all mandatory expenses
+      const { mandatoryExpenses, deleteMandatoryExpense } = useBudgetStore.getState()
+      for (const expense of mandatoryExpenses) {
+        await deleteMandatoryExpense(expense.id)
+      }
+
+      // Recalculate budget (should be 0)
+      await useBudgetStore.getState().recalculate()
     } catch (error) {
-      throw error
+      console.error('Failed to clear transactions:', error)
+      throw new Error('Failed to clear transactions. Please try again.')
     }
   },
 }))

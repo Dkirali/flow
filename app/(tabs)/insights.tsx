@@ -8,9 +8,11 @@ import {
   useColorScheme,
   useWindowDimensions,
   Alert,
+  Modal,
 } from 'react-native'
 import { useState, useMemo } from 'react'
 import Svg, { Path, Circle, Text as SvgText } from 'react-native-svg'
+import { X, Info, ChevronDown } from 'lucide-react-native'
 import { useUserStore } from '@/stores/userStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useBudgetStore } from '@/stores/budgetStore'
@@ -23,6 +25,11 @@ import {
   getSubscriptions,
   getSavingsForecast,
   getAIGoal,
+  getRecentExpenses,
+  calculateDailyInvestment,
+  getEnhancedSavingsForecast,
+  type DailyInvestmentResult,
+  type InvestmentComparison,
 } from '@/utils/insightsLogic'
 
 // ─── Colour tokens (mirrors other screens) ────────────────────────────────────
@@ -61,16 +68,25 @@ function SpendingPatternChart({
   accentColor,
   subColor,
   trackColor,
+  currencySymbol,
 }: {
   points: ReturnType<typeof getSpendingPatterns>
   accentColor: string
   subColor: string
   trackColor: string
+  currencySymbol: string
 }) {
   const BAR_AREA_HEIGHT = 90
   const maxAmt = Math.max(...points.map(p => p.amount), 1)
   const avg = points.reduce((s, p) => s + p.amount, 0) / points.length
   const avgY = BAR_AREA_HEIGHT - (avg / maxAmt) * BAR_AREA_HEIGHT
+
+  // Format value for display (shortened if large)
+  const formatValue = (val: number) => {
+    if (val === 0) return ''
+    if (val >= 1000) return `${currencySymbol}${(val / 1000).toFixed(1)}k`
+    return `${currencySymbol}${Math.round(val)}`
+  }
 
   return (
     <View>
@@ -80,7 +96,7 @@ function SpendingPatternChart({
       </View>
 
       {/* Chart area */}
-      <View style={{ height: BAR_AREA_HEIGHT + 20, position: 'relative' }}>
+      <View style={{ height: BAR_AREA_HEIGHT + 35, position: 'relative' }}>
         {/* Average dashed line */}
         <View
           style={{
@@ -96,12 +112,26 @@ function SpendingPatternChart({
           }}
         />
 
-        {/* Bars */}
+        {/* Bars with value labels */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: BAR_AREA_HEIGHT, gap: 6 }}>
           {points.map((p, i) => {
             const barH = maxAmt > 0 ? Math.max((p.amount / maxAmt) * BAR_AREA_HEIGHT, 4) : 4
             return (
               <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: BAR_AREA_HEIGHT }}>
+                {/* Value label */}
+                {p.amount > 0 && (
+                  <Text 
+                    style={{ 
+                      color: p.isToday ? accentColor : subColor, 
+                      fontSize: 9, 
+                      fontWeight: '600',
+                      marginBottom: 4,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {formatValue(p.amount)}
+                  </Text>
+                )}
                 <View
                   style={{
                     width: '100%',
@@ -313,13 +343,50 @@ const INVEST_TABS: { key: InvestTab; label: string }[] = [
   { key: 'realEstate', label: 'Real Est.' },
 ]
 
+// ─── Info Tooltip Component ───────────────────────────────────────────────────
+
+function InfoTooltip({ text, color }: { text: string; color: string }) {
+  const [visible, setVisible] = useState(false)
+  
+  return (
+    <View style={{ position: 'relative' }}>
+      <Pressable onPress={() => setVisible(!visible)}>
+        <Info size={16} color={color} />
+      </Pressable>
+      {visible && (
+        <View style={{
+          position: 'absolute',
+          top: 20,
+          right: 0,
+          width: 220,
+          backgroundColor: '#1A1928',
+          borderRadius: 12,
+          padding: 12,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+          zIndex: 1000,
+        }}>
+          <Text style={{ color: '#EEEEFF', fontSize: 12, lineHeight: 18 }}>
+            {text}
+          </Text>
+        </View>
+      )}
+    </View>
+  )
+}
+
 export default function InsightsScreen() {
   const [investTab, setInvestTab] = useState<InvestTab>('sp500')
   const [goalAccepted, setGoalAccepted] = useState(false)
+  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null)
+  const [showExpenseSelector, setShowExpenseSelector] = useState(false)
 
   const { name } = useUserStore()
   const { theme, accentColor, currencySymbol, monthlyIncome } = useSettingsStore()
-  const { dailyBudget } = useBudgetStore()
+  const { dailyBudget, mandatoryExpenses } = useBudgetStore()
   const { transactions: storeTransactions } = useTransactionStore()
   const systemScheme = useColorScheme()
 
@@ -364,6 +431,32 @@ export default function InsightsScreen() {
   const goal = useMemo(
     () => getAIGoal(storeTransactions, monthlyIncome, now),
     [storeTransactions, monthlyIncome]
+  )
+
+  // ── New Investment Alternative ───────────────────────────────────────────────
+  
+  const recentExpenses = useMemo(
+    () => getRecentExpenses(storeTransactions, 10, now),
+    [storeTransactions]
+  )
+
+  const selectedExpense = useMemo(() => {
+    if (!selectedExpenseId && recentExpenses.length > 0) {
+      return recentExpenses[0]
+    }
+    return recentExpenses.find(e => e.expenseId === selectedExpenseId) || recentExpenses[0]
+  }, [recentExpenses, selectedExpenseId])
+
+  const investmentComparison = useMemo<InvestmentComparison | null>(() => {
+    if (!selectedExpense) return null
+    return calculateDailyInvestment(selectedExpense.expenseAmount, investTab)
+  }, [selectedExpense, investTab])
+
+  // ── Enhanced Savings Forecast ────────────────────────────────────────────────
+  
+  const enhancedForecast = useMemo(
+    () => getEnhancedSavingsForecast(storeTransactions, monthlyIncome, mandatoryExpenses, now),
+    [storeTransactions, monthlyIncome, mandatoryExpenses]
   )
 
   const userInitial = (name || 'U').charAt(0).toUpperCase()
@@ -445,44 +538,124 @@ export default function InsightsScreen() {
                 accentColor={c.accent}
                 subColor={c.sub}
                 trackColor={c.track}
+                currencySymbol={currencySymbol}
               />
             </View>
           </Card>
 
           {/* ── 3. Investment Alternative ───────────────────────────────── */}
           <Card cardColor={c.card} borderColor={c.border}>
-            <Text style={[styles.sectionTitle, { color: c.text }]}>Investment Alternative</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <Text style={[styles.sectionTitle, { color: c.text }]}>Investment Alternative</Text>
+              <InfoTooltip 
+                text="This shows what would have happened if you had invested this expense amount instead. Based on that asset's daily % change." 
+                color={c.sub}
+              />
+            </View>
             <Text style={[styles.sectionSubtitle, { color: c.sub }]}>
-              What if you invested your top spend?
+              What if you invested an expense instead?
             </Text>
 
-            {/* Comparison row */}
-            <View style={styles.investCompare}>
-              {/* Left: category + amount */}
-              <View style={[styles.investBox, { backgroundColor: isDark ? '#2E2D45' : '#F0EFF8', borderRadius: 14 }]}>
-                <Text style={[styles.investBoxLabel, { color: c.sub }]}>
-                  {investment.category.toUpperCase()}
-                </Text>
-                <Text style={[styles.investBoxValue, { color: c.text }]}>
-                  {currencySymbol}{investment.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </Text>
+            {/* Expense Selector */}
+            {recentExpenses.length > 0 && selectedExpense && (
+              <View style={{ marginTop: 16, marginBottom: 16 }}>
+                <Pressable
+                  onPress={() => setShowExpenseSelector(true)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: isDark ? '#2E2D45' : '#F0EFF8',
+                    borderRadius: 12,
+                    padding: 14,
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: c.sub, fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginBottom: 2 }}>
+                      {selectedExpense.expenseCategory.toUpperCase()}
+                    </Text>
+                    <Text style={{ color: c.text, fontSize: 16, fontWeight: '700' }}>
+                      {currencySymbol}{selectedExpense.expenseAmount.toFixed(2)}
+                    </Text>
+                    <Text style={{ color: c.sub, fontSize: 11, marginTop: 2 }}>
+                      {selectedExpense.expenseName}
+                    </Text>
+                  </View>
+                  <ChevronDown size={20} color={c.sub} />
+                </Pressable>
               </View>
+            )}
 
-              {/* VS connector */}
-              <View style={[styles.vsCircle, { backgroundColor: c.accent }]}>
-                <Text style={styles.vsText}>VS</Text>
+            {recentExpenses.length === 0 && (
+              <View style={{ marginTop: 16, marginBottom: 16, alignItems: 'center' }}>
+                <Text style={{ color: c.sub, fontSize: 13, textAlign: 'center' }}>
+                  No expenses to compare. Add some transactions first!
+                </Text>
               </View>
+            )}
 
-              {/* Right: investment return */}
-              <View style={[styles.investBox, { backgroundColor: isDark ? '#2E2D45' : '#F0EFF8', borderRadius: 14 }]}>
-                <Text style={[styles.investBoxLabel, { color: c.sub }]}>
-                  {INVEST_TABS.find(t => t.key === investTab)?.label.toUpperCase()}
-                </Text>
-                <Text style={[styles.investBoxValue, { color: c.income }]}>
-                  +{currencySymbol}{investment.returns[investTab].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </Text>
+            {/* Comparison Result */}
+            {investmentComparison && (
+              <View style={{ marginBottom: 16 }}>
+                {/* Original Amount */}
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: isDark ? '#2E2D45' : '#F0EFF8',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 8,
+                }}>
+                  <Text style={{ color: c.sub, fontSize: 13, fontWeight: '600' }}>Original</Text>
+                  <Text style={{ color: c.text, fontSize: 18, fontWeight: '700' }}>
+                    {currencySymbol}{investmentComparison.originalAmount.toFixed(2)}
+                  </Text>
+                </View>
+
+                {/* Result Amount */}
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: isDark ? '#2E2D45' : '#F0EFF8',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 8,
+                }}>
+                  <View>
+                    <Text style={{ color: c.sub, fontSize: 13, fontWeight: '600' }}>
+                      {INVEST_TABS.find(t => t.key === investTab)?.label} Result
+                    </Text>
+                    <Text style={{ color: c.sub, fontSize: 11, marginTop: 2 }}>
+                      Daily return: {investmentComparison.percentChange > 0 ? '+' : ''}{investmentComparison.percentChange.toFixed(3)}%
+                    </Text>
+                  </View>
+                  <Text style={{ color: investmentComparison.isGain ? c.income : c.expense, fontSize: 18, fontWeight: '700' }}>
+                    {currencySymbol}{investmentComparison.resultAmount.toFixed(2)}
+                  </Text>
+                </View>
+
+                {/* Delta */}
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: investmentComparison.isGain ? 'rgba(0,201,167,0.1)' : 'rgba(255,107,107,0.1)',
+                  borderRadius: 12,
+                  padding: 14,
+                  borderWidth: 1,
+                  borderColor: investmentComparison.isGain ? 'rgba(0,201,167,0.3)' : 'rgba(255,107,107,0.3)',
+                }}>
+                  <Text style={{ color: investmentComparison.isGain ? c.income : c.expense, fontSize: 13, fontWeight: '600' }}>
+                    {investmentComparison.isGain ? 'Gain' : 'Loss'}
+                  </Text>
+                  <Text style={{ color: investmentComparison.isGain ? c.income : c.expense, fontSize: 18, fontWeight: '700' }}>
+                    {investmentComparison.isGain ? '+' : ''}{currencySymbol}{Math.abs(investmentComparison.delta).toFixed(2)}
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Investment tabs */}
             <View style={styles.investTabs}>
@@ -509,6 +682,77 @@ export default function InsightsScreen() {
                 </Pressable>
               ))}
             </View>
+
+            {/* Expense Selector Modal */}
+            <Modal
+              visible={showExpenseSelector}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setShowExpenseSelector(false)}
+            >
+              <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' }}>
+                <Pressable onPress={(e) => e.stopPropagation()}>
+                  <View style={{
+                    backgroundColor: c.card,
+                    borderTopLeftRadius: 24,
+                    borderTopRightRadius: 24,
+                    padding: 24,
+                    maxHeight: '80%',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                      <Text style={{ flex: 1, color: c.text, fontSize: 20, fontWeight: '700' }}>Select Expense</Text>
+                      <Pressable onPress={() => setShowExpenseSelector(false)} hitSlop={12}>
+                        <X size={22} color={c.sub} />
+                      </Pressable>
+                    </View>
+
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                      {recentExpenses.map((expense) => (
+                        <Pressable
+                          key={expense.expenseId}
+                          onPress={() => {
+                            setSelectedExpenseId(expense.expenseId)
+                            setShowExpenseSelector(false)
+                          }}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingVertical: 14,
+                            borderBottomWidth: 1,
+                            borderBottomColor: c.border,
+                          }}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: c.text, fontSize: 15, fontWeight: '600' }}>
+                              {expense.expenseName}
+                            </Text>
+                            <Text style={{ color: c.sub, fontSize: 12, marginTop: 2 }}>
+                              {expense.expenseCategory} • {expense.date}
+                            </Text>
+                          </View>
+                          <Text style={{ color: c.expense, fontSize: 16, fontWeight: '700' }}>
+                            -{currencySymbol}{expense.expenseAmount.toFixed(2)}
+                          </Text>
+                          {selectedExpenseId === expense.expenseId && (
+                            <View style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 10,
+                              backgroundColor: c.accent,
+                              marginLeft: 12,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}>
+                              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>✓</Text>
+                            </View>
+                          )}
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </Pressable>
+              </View>
+            </Modal>
           </Card>
 
           {/* ── 4. Savings Streak ───────────────────────────────────────── */}
@@ -609,42 +853,129 @@ export default function InsightsScreen() {
             )}
           </Card>
 
-          {/* ── 6. Savings Forecast ─────────────────────────────────────── */}
+          {/* ── 6. Enhanced Savings Forecast ─────────────────────────────────────── */}
           <Card cardColor={c.card} borderColor={c.border}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
               <View>
                 <Text style={[styles.sectionTitle, { color: c.text }]}>Savings Forecast</Text>
                 <Text style={[styles.sectionSubtitle, { color: c.sub }]}>
-                  6-month projection
+                  Based on income, mandatory expenses & discretionary spending
                 </Text>
               </View>
-              <View style={[styles.estimatedBadge, { backgroundColor: `${c.income}18`, borderColor: `${c.income}38` }]}>
-                <Text style={{ color: c.sub, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>ESTIMATED</Text>
-                <Text style={{ color: c.income, fontSize: 14, fontWeight: '800' }}>
-                  +{currencySymbol}{estimatedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              <View style={[styles.estimatedBadge, { 
+                backgroundColor: enhancedForecast.isNegative ? 'rgba(255,107,107,0.18)' : `${c.income}18`, 
+                borderColor: enhancedForecast.isNegative ? 'rgba(255,107,107,0.38)' : `${c.income}38` 
+              }]}>
+                <Text style={{ color: c.sub, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>
+                  {enhancedForecast.isNegative ? 'DEFICIT' : 'PROJECTED'}
+                </Text>
+                <Text style={{ 
+                  color: enhancedForecast.isNegative ? c.expense : c.income, 
+                  fontSize: 14, 
+                  fontWeight: '800' 
+                }}>
+                  {enhancedForecast.isNegative ? '' : '+'}{currencySymbol}{Math.abs(enhancedForecast.projectedMonthlySavings).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </Text>
               </View>
             </View>
 
-            <View style={{ marginTop: 8 }}>
-              <ForecastChart
-                points={forecastPoints}
-                accentColor={c.accent}
-                subColor={c.sub}
-              />
+            {/* Calculation breakdown */}
+            <View style={{ marginTop: 16, marginBottom: 16 }}>
+              <View style={{ 
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: 8,
+                paddingVertical: 8,
+              }}>
+                <Text style={{ color: c.sub, fontSize: 13 }}>Monthly Income</Text>
+                <Text style={{ color: c.income, fontSize: 15, fontWeight: '600' }}>
+                  +{currencySymbol}{enhancedForecast.monthlyIncome.toLocaleString()}
+                </Text>
+              </View>
+              
+              <View style={{ 
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: 8,
+                paddingVertical: 8,
+              }}>
+                <Text style={{ color: c.sub, fontSize: 13 }}>Mandatory Expenses</Text>
+                <Text style={{ color: c.expense, fontSize: 15, fontWeight: '600' }}>
+                  -{currencySymbol}{enhancedForecast.totalMandatory.toLocaleString()}
+                </Text>
+              </View>
+              
+              <View style={{ 
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: 8,
+                paddingVertical: 8,
+                borderBottomWidth: 1,
+                borderBottomColor: c.border,
+              }}>
+                <Text style={{ color: c.sub, fontSize: 13 }}>Avg. Discretionary</Text>
+                <Text style={{ color: c.expense, fontSize: 15, fontWeight: '600' }}>
+                  -{currencySymbol}{enhancedForecast.avgDiscretionary.toLocaleString()}
+                </Text>
+              </View>
+              
+              <View style={{ 
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginTop: 8,
+                paddingVertical: 8,
+              }}>
+                <Text style={{ color: c.text, fontSize: 15, fontWeight: '700' }}>Monthly Savings</Text>
+                <Text style={{ 
+                  color: enhancedForecast.isNegative ? c.expense : c.income, 
+                  fontSize: 18, 
+                  fontWeight: '800' 
+                }}>
+                  {enhancedForecast.isNegative ? '-' : '+'}{currencySymbol}{Math.abs(enhancedForecast.projectedMonthlySavings).toLocaleString()}
+                </Text>
+              </View>
             </View>
 
-            {/* Legend */}
-            <View style={{ flexDirection: 'row', gap: 20, marginTop: 8 }}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendLine, { backgroundColor: c.accent }]} />
-                <Text style={[styles.legendText, { color: c.sub }]}>Optimistic</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendLineDashed, { borderColor: c.sub }]} />
-                <Text style={[styles.legendText, { color: c.sub }]}>Conservative</Text>
-              </View>
+            {/* 3-month projection */}
+            <View style={{
+              backgroundColor: enhancedForecast.isNegative ? 'rgba(255,107,107,0.1)' : 'rgba(0,201,167,0.1)',
+              borderRadius: 12,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: enhancedForecast.isNegative ? 'rgba(255,107,107,0.3)' : 'rgba(0,201,167,0.3)',
+            }}>
+              <Text style={{ color: c.sub, fontSize: 12, marginBottom: 4 }}>
+                3-Month Projection
+              </Text>
+              <Text style={{ 
+                color: enhancedForecast.isNegative ? c.expense : c.income, 
+                fontSize: 20, 
+                fontWeight: '800' 
+              }}>
+                {enhancedForecast.isNegative ? '-' : '+'}{currencySymbol}{Math.abs(enhancedForecast.projected3MonthSavings).toLocaleString()}
+              </Text>
             </View>
+
+            {/* Warning message if negative */}
+            {enhancedForecast.isNegative && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 12,
+                padding: 12,
+                backgroundColor: 'rgba(255,107,107,0.1)',
+                borderRadius: 8,
+              }}>
+                <Text style={{ fontSize: 16, marginRight: 8 }}>⚠️</Text>
+                <Text style={{ color: c.expense, fontSize: 13, flex: 1 }}>
+                  Your discretionary spending exceeds your income minus mandatory expenses.
+                </Text>
+              </View>
+            )}
           </Card>
 
           {/* ── 7. AI Goal Card ─────────────────────────────────────────── */}
