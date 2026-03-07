@@ -52,6 +52,11 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
         }}
       />
+      {/* Hidden from tab bar — accessible via router.push */}
+      <Tabs.Screen
+        name="transactions"
+        options={{ href: null }}
+      />
     </Tabs>
   )
 }

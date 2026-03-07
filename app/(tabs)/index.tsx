@@ -335,7 +335,7 @@ export default function DashboardScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>Recent Activity</Text>
               {hasTransactions && (
-                <Pressable onPress={() => router.push('/(tabs)/calendar')}>
+                <Pressable onPress={() => router.push('/(tabs)/transactions')}>
                   <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '600' }}>VIEW ALL</Text>
                 </Pressable>
               )}

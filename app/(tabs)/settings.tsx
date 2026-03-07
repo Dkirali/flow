@@ -15,7 +15,8 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState, useCallback, useEffect, useContext, createContext } from 'react'
-import { Bell, Download, Trash2, X, Check } from 'lucide-react-native'
+import { Bell, Download, Trash2, X, Check, List, ChevronRight } from 'lucide-react-native'
+import { router } from 'expo-router'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated'
 import { useUserStore } from '@/stores/userStore'
@@ -1283,6 +1284,29 @@ export default function SettingsScreen() {
           {/* ─── DATA & PRIVACY ───────────────────── */}
           <SectionHeader title="DATA & PRIVACY" />
           <SettingsCard>
+            <Pressable
+              onPress={() => router.push('/(tabs)/transactions')}
+              style={({ pressed }) => ({
+                backgroundColor: pressed ? 'rgba(128,128,128,0.08)' : 'transparent',
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: themeColors.divider,
+              })}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  paddingVertical: 16,
+                }}
+              >
+                <List size={18} color={themeColors.subtext} style={{ marginRight: 12 }} />
+                <Text style={{ flex: 1, color: themeColors.text, fontSize: 16 }}>
+                  All Transactions
+                </Text>
+                <ChevronRight size={18} color={themeColors.subtext} />
+              </View>
+            </Pressable>
             <Pressable
               onPress={() => Alert.alert('Export Data', 'Data export coming soon.')}
               style={({ pressed }) => ({
